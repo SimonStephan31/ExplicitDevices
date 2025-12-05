@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Demo Exp</title>
+    <script src="jspsych/jspsych.js"></script>
+    <script src="jspsych/plugin-html-button-response.js"></script>
+    <script src="jspsych/plugin-survey-multi-choice.js"></script>
+    <script src="jspsych/plugin-survey-likert.js"></script>
+    <script src="jspsych/plugin-html-slider-response.js"></script>
+	<script src="jspsych/plugin-image-keyboard-response.js"></script>
+	<script src="jspsych/plugin-html-keyboard-response.js"></script>
+    <script src="jspsych/plugin-preload.js"></script>
+    <script src="jspsych/plugin-survey-text.js"></script>
+    <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body></body>
+  <script>
+
+
+
+// run study with ?demo=true at the end of url to have the demo mode
+
+
+var jsPsych = initJsPsych({
+  experiment_width: 1000,
+  on_finish: function(){
+    window.location = "https://app.prolific.co/submissions/complete?cc=CBJKHDO6"
+  }
+});
+
+
+// handle demo mode vs. test mode
+
+var demo_mode = true; // in demo mode, answers to questions are not required and instruction test is always passed
+
+function answ_req() {
+   var ans_required; 
+   if(demo_mode == true){
+    ans_required = false; 
+   }
+   else{ans_required = true; 
+    // Prevent participants from copy paste
+      document.addEventListener('contextmenu', event => event.preventDefault()); // Disables right-click menu
+      document.onselectstart = function() {
+      return false;
+      }; // Disables text selection
+
+      // Disables Ctrl+C, Ctrl+V, and Ctrl+X
+      document.onkeydown = function(e) {
+      if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'x')) {
+        e.preventDefault();
+      }
+    };
+   }
+   return ans_required;
+}
+
+var answ_required = answ_req();
+
+console.log("demo mode = "+demo_mode, ", answers required: "+answ_required);
+
+
+var condition;
+//var condition = CONDITION; 
+
+jsPsych.data.addProperties({condition: condition});
+
+var subj_code;
+
+function makeid(length) {
+    var result           = '';
+    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var charactersLength = characters.length;
+    for ( var i = 0; i < length; i++ ) {
+      result += characters.charAt(Math.floor(Math.random() * 
+ charactersLength));
+   }
+   return result;
+}
+
+subj_code = makeid(12);
+
+console.log(subj_code);
+
+jsPsych.data.addProperties({subj_code: subj_code});
+
+
+
+/* create timeline */
+var timeline = [];
+
+/* preload images */
+var preload = {
+  type: jsPsychPreload,
+  images: ['img/uni_org_color_li.png',  
+
+    'img/functional_machine.png',  
+
+    'img/dysfunctional_machine.png',
+
+    'img/separate_parts.png', 
+  ]
+}
+timeline.push(preload);
+
+
+
+var styles = `
+  p {
+    text-align: justify
+  }
+  
+`
+var styleSheet = document.createElement("style")
+styleSheet.type = "text/css"
+styleSheet.innerText = styles
+document.head.appendChild(styleSheet)
+
+
+//////////////////////// images in the different conditions
+
+console.log(condition)
+
+var office_config; 
+
+//////////////////////////////////////////////////////
+/* Condition selection (just for offline demo) */
+
+var select = {
+  type: jsPsychSurveyText,
+  questions: [
+    {
+		prompt: 
+		`
+    <p><b>This is a Demo version of the experiment.</b></p>
+		<p><b>Select a condition: type in a number between 1 and 3.</b></p>
+
+    <p>1: functional</p>
+    <p>2: dysfunctional</p>
+    <p>3: separate parts</p>
+		`, 
+		placeholder: 'number between 1 and 3',
+		required: answ_required,
+		name: 'CondSel',
+	},
+  ],
+	on_finish: function(data){
+	condition = data.response.CondSel,
+	console.log(condition);
+	} 
+}
+timeline.push(select);
+
+
+
+//////////////////////////////////////////////////////
+/* Instructions ( all conditions)  */
+var cond_selected = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: function () {
+    return "You chose to see Condition "+condition;
+		},
+    choices: ['Continue']
+};
+//timeline.push(select, cond_selected);
+
+
+
+
+
+
+//////////////////////////////////////////////////////
+/* Confirmations */
+var confs = {
+  type: jsPsychSurveyMultiChoice,
+  questions: [
+    {
+      prompt: "This study works properly only on Desktop PCs and Laptops, and not on Smartphones or Tablets. Before you proceed, please confirm that you take part via Desktop PC or Laptop.", 
+      name: 'DesktopConf', 
+      options: ['1: I confirm', '2: I do not confirm'], 
+      required: answ_required
+    }, 
+    {
+      prompt: "For the scientific utility of the results, it is very important that you provide complete and careful responses. How seriously will you take your participation in the study?", 
+      name: 'AttentConf', 
+      options: ['1: I will take it seriously', '2: I will not take it seriously'], 
+      required: answ_required
+    }, 
+  ],
+  on_finish: function(data){
+            if(condition == 1){ 
+              machine_type = "functional";
+              machine_pic = "img/functional_machine.png"
+            }else if(condition == 2){
+              machine_type = "dysfunctional";
+              machine_pic = "img/dysfunctional_machine.png"
+            }else if(condition == 3){
+              machine_type = "separate_parts";
+              machine_pic = "img/separate_parts.png"
+            };
+    	  jsPsych.data.addProperties({desktop_conf: data.response.DesktopConf, attent_conf: data.response.AttentConf, 
+          machine_type: machine_type,
+          machine_pic: machine_pic
+        });
+  },
+  preamble: `
+              <p><img src="img/uni_org_color_li.png" width = 100%></img></p>
+              <p><b>Welcome to this experiment and thank you very much for your participation.</b></p>
+              <p>Please note: This study contains memory checks with which we aim to ensure that you correctly understood the central aspects of the study.</p>
+            `
+};
+timeline.push(confs);
+
+
+
+//////////////////
+/* instr 1 */ 
+var instruction = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: function () {
+      return `
+        <p><b><i>Please read the following instruction:</i></b></p>        
+        
+        <p>On the following screen we will show you a drawing. 
+          Your task will be to first study the scene and then to write a short description of what you see. 
+          We want you to write this text based on your intuitive understanding of the depicted scene.</p>
+
+        <p>In the text you'll write, please be as concise and clear as possible.</p>
+
+        <p><b><i>If you're ready to start, place click "Continue" to proceed.</i></b></p>
+    `;
+    },
+    choices: ['Continue']
+}
+//timeline.push(instruction);
+
+
+///////////////////////// scenario 
+var machine_description = {
+  type: jsPsychSurveyText,
+  name: 'machine_description',
+  questions: [
+    {prompt: function(){return`
+              <p>Below you see a drawing. Please study that drawing before you answer the question below.</p>
+              
+              <p><img src=`+machine_pic+` width = 100%></img></p>
+              
+              <p>If you've studied the drawing, please describe what you see here. 
+                Please use the text field below to write your description. Be as concise and clear as possible.</p>`
+              }, 
+    rows: 20, 
+    columns: 120, 
+    required: answ_required,
+    name: 'machine_description'
+    },
+  ],
+  on_finish: function(data){
+	  jsPsych.data.addProperties({machine_description: data.response.machine_description});
+	  console.log(data.response.machine_description)
+  },
+}
+timeline.push(machine_description);
+
+
+
+//////////////////
+/* instr 2 */ 
+var mem_check = {
+  type: jsPsychSurveyMultiChoice,
+  name: 'mem_check',
+  questions: [
+    {
+      prompt: "Which of the following objects was not part of the drawing that you saw?", 
+      options: ['1: A balloon.', 
+                '2: A crossbow.',
+                '3: A toy car.', 
+                '4: A toy rocket.', 
+                '5: A mouse.'],
+      required: answ_required,
+      name: 'mem_check'
+    },
+  ],
+  preamble: function() {return `
+    <p>Thank you for your description. Before you finish the experiment, please answer the following memory check questions</p>
+    `
+  },
+  on_finish: function(data){
+    if(data.response.mem_check == '3: A toy car.'){
+      mem_check_correct = "correct"
+    }else{
+      mem_check_correct = "incorrect"
+    }
+	  jsPsych.data.addProperties({mem_check: data.response.mem_check, mem_check_correct: mem_check_correct});
+    console.log("mem check"+mem_check_correct)
+  },
+};
+timeline.push(mem_check);
+
+
+/////////////////////////////////////// demographics
+var demogr_age = {
+  type: jsPsychSurveyText,
+  name: 'Age_query',
+  questions: [
+    {prompt: 'How old are you?', 
+    placeholder: 'Age as a number', 
+    required: answ_required,
+    name: 'Age'
+    },
+  ],
+  on_finish: function(data){
+	  jsPsych.data.addProperties({age: data.response.Age});
+  },
+}
+
+
+
+var demogr_gender = {
+  type: jsPsychSurveyMultiChoice,
+  name: 'gender_query',
+  questions: [
+    {
+      prompt: "Please indicate with which gender you identify.", 
+      options: ['1: male', '2: female', '3: non-binary', '4: prefer not to say'],
+      required: answ_required,
+      name: 'Gender'
+    },
+  ],
+  on_finish: function(data){
+	  jsPsych.data.addProperties({gender: data.response.Gender});
+  },
+};
+timeline.push(demogr_age, demogr_gender);
+
+
+
+
+/////////////////////////////////////// technical issues
+var tech_issues = {
+  type: jsPsychSurveyText,
+  name: 'Tech_issue_query',
+  questions: [
+    {prompt: 'In the text field below you can report any errors that you came across during the study (e.g., technical issues, layout problems, spelling errors, errors in program logic and flow, etc.).', 
+    rows: 10, 
+    columns: 100, 
+    required: false,
+    name: 'Tech_issue_report'
+    },
+  ],
+  on_finish: function(data){
+	  jsPsych.data.addProperties({tech_issues: data.response.Tech_issue_report});
+	  console.log(data.response.Tech_issue_report)
+  },
+}
+timeline.push(tech_issues);
+
+///////////////////////////////////// debriefing
+
+var debriefing = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: 
+    `
+    <img src="img/uni_org_color_li.png" width = 100%></img>
+    <p><b>Thank you for taking part in this study!</b></p>
+  
+    <p>The aim of this experiment is to find out more about how people reason about causal mechanisms. 
+    If you are interested in further details or if you have any questions or comments concerning the experiment, 
+    feel free to contact me (XXXX) under <i>XXX@XXX</i>
+    
+    <p>To ensure you receive your reward, please click the button below to return to the Prolific website:</p>
+    `
+    ,
+    choices: ['Finish study']
+};
+timeline.push(debriefing);
+
+
+
+/////////////////////////////////////////////////////////////////
+/* start the experiment */
+    jsPsych.run(timeline);
+
+  
+  </script>
+</html>

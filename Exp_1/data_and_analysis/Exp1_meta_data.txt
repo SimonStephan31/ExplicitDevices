@@ -1,0 +1,72 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Folder content:
+
+Exp1_Analysis.Rmd		(the R script of the analysis) 
+Exp1_Analysis.html 		(knitted/compiled version of the analysis script)
+Exp1_subj_explanations.csv 	(see below)
+Exp1_parsing_results.csv	(see below)
+Exp1_parsing_results_Newton.csv	(see below)
+mech. exp 1.py			(see below)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Exp1_subj_explanations.csv 
+
+Contains the raw data file that got subjected to the GPT parsing code. 
+
+Columns: 
+"condition" 	(experimental condition, where 1 is "functional", 2 is "dysfunctional", and 3 is "separate parts") 
+"nummer" 	(participant ID) 
+"desktop_conf" 	(participants' response to the question asking them to confirm to take part via Desktop or Laptop)
+"attent_conf" 	(participants' response to the question asking them to confirm to take their participation seriously)
+"machine_type" 	(experimental condition again, but with labels)
+"machine_pic" 	(the stimulus/machine picture that participants were shown)
+"mem_check" 	(participants' response to a memory check question asking them to select the object that was not in the stimulus) 
+"mem_check_correct" 	(coding whether participants answered the memory check question correctly)
+"age"		(age in years) 
+"gender"	(gender)
+"tech_issues"	(potential technical issues participants may have experienced)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+mech. exp 1.py
+
+the python script used to conduct the parsing analysis with GPT
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+Exp1_parsing_results.csv
+
+Contains the results of the GPT parsing over participants' descriptions. 
+
+Columns: 
+"nummer"	(see above)
+"machine_type"	(see above)
+"model"		(the version of GPT that did the parsing) 
+"entities"	(the entities identified in participants' descriptions by GPT) 
+"activities" 	(the activities identified in participants' descriptions by GPT)
+"arrangements"	(the arrangements identified in participants' descriptions by GPT)
+"expl_length" 	(length of participants' descriptions; unit is words) 
+"num_ent"	(number of extracted listed entities) 
+"num_act"	(number of extracted listed activities) 
+"num_arr"	(number of extracted listed arrangements)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Exp1_parsing_results_Newton.csv
+
+contains the parsing results checking to which extent participants used Newtonian terminology in their descriptions
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Exp1_Analysis.Rmd	(the R script of the analysis) 
+Exp1_Analysis.html 	(knitted/compiled version of the analysis script) 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+

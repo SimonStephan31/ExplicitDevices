@@ -1,0 +1,684 @@
+---
+title: "Analysis"
+author: "Simon Stephan"
+output:  
+  html_document:
+    number_sections: true
+    toc: true  
+    collapsed: false
+    toc_float: true
+    smooth_scroll: false
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+# packages
+library(ez)
+library(reshape2)
+library(reshape)
+library(ggplot2)
+library(plyr)
+library(pastecs)
+library(ez)
+library(data.table)
+library(tidyverse) 
+
+library(showtext)
+library(ggtext)
+library(readr)
+library(readxl)
+library(dplyr)
+
+font_add_google("Poppins", "Poppins")
+font_add_google("Roboto Mono", "Roboto Mono")
+showtext_auto()
+```
+
+
+```{r}
+library(readr)
+tdata <- read_delim("Exp1_parsing_results.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+
+table(tdata$machine_type)
+```
+
+```{r}
+mean(tdata$age)
+sd(tdata$age)
+min(tdata$age)
+max(tdata$age)
+```
+
+
+
+```{r}
+library(dplyr)
+
+# Group the data by 'machine_type' and calculate the mean for each length column
+comparison_results <- tdata %>%
+  group_by(model, machine_type) %>%
+  summarise(
+    avg_objects = mean(num_ent, na.rm = TRUE),
+    avg_activities = mean(num_act, na.rm = TRUE),
+    avg_constraints = mean(num_arr, na.rm = TRUE)
+  )
+
+# Print the results
+print(comparison_results)
+```
+
+
+Differences in activities:
+
+```{r}
+library(afex)
+library(emmeans)
+
+a1 <- aov_car(num_act ~ machine_type*model  + Error(nummer/model), tdata, anova_table = list(es = "pes"))
+a1
+```
+
+
+```{r}
+# means
+group_means_act <- emmeans(a1, c("machine_type")) 
+group_means_act
+
+pairs(emmeans(a1, ~ machine_type), adjust = "none") -> deltas 
+
+print("pair contrasts and test statistics")
+cat("\n\n") 
+deltas 
+
+cat("\n\n") 
+
+print("pair contrasts and their CIs")
+cat("\n\n") 
+confint(deltas, level = 0.95) -> diff_data
+```
+
+
+
+
+```{r}
+myTheme <- theme(plot.title = element_text(size = 20),
+        axis.title.x = element_text(size = 20),
+        axis.title.y = element_text(size = 20),
+        axis.text.x = element_text(size = 10, angle = 45, color = "#636363", vjust = 0.7), 
+        axis.text.y = element_text(size = 12, angle = 0, color = "#636363"),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(face = "bold", size = 18),
+        strip.text.x = element_text(size = 18),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(), 
+        axis.line.x = element_line(colour = "black"), 
+        axis.line.y = element_line(colour = "black"),
+        axis.text = element_text(colour ="black"), 
+        axis.ticks = element_line(colour ="black"))
+
+
+library(see)
+
+
+pd <- position_dodge(width = 0.15)
+
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Mean number of listed activities"
+subtitle_text <- "identified by different LLMs per machine type condition"
+caption_text <- "Note. Bars show means, error bars show 95% CIs."
+
+
+g1 <- ggplot(tdata, aes(x = machine_type, y = num_act, fill = machine_type)) +
+  guides(fill=FALSE)+
+  #facet_wrap( ~ model, labeller = label_both, nrow = 1, strip.position = "top")+
+  scale_y_continuous(limits = c(0, 22), breaks=seq(0, 22, 2), expand = c(0,0)) +
+  scale_x_discrete(labels = c("dysf.", "func.", "scr.")) +
+  #geom_jitter(alpha = 0.15, width = 0.15, height = 0.02, aes(color = structure)) +
+  #geom_violin(alpha = 0.2, color = NA, trim = T)+
+  #geom_line(position = pd, size = 1, alpha=0.15, aes(group = subj_code)) +
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="line", 
+   #           shape = 22, size = 1.5, alpha = 0.9)+
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="point", 
+   #           color = "black", shape = 22, size = 3, group=1, alpha = 1, fill = "black")+
+  stat_summary(aes(y=num_act, group=1), fun.y=mean, position=position_dodge(width=0.95),geom="bar", color = "black", alpha = 0.6)+
+  stat_summary(aes(y =num_act, group=1), fun.data = mean_cl_boot, 
+               geom = "errorbar", width = 0, size = 1) +
+  #stat_summary(aes(label=round(after_stat(y),2), group = 1), fun.y=mean, geom="text", size=4,
+   #          vjust = -3.9, hjust = 0.6)+
+  #geom_point(data = preds_plot, aes(x = case, y = prediction), color = "black", fill = "black", size = 3, shape = 22) + # predictions
+  #stat_summary(aes(y = rating,group=1), fun.y=median, geom="point", color = "black", shape = 3, size = 4, 
+  #            group=1, alpha = 1, position = position_dodge(width = 0.5))+
+  #geom_point(data = preds, aes(x = case, y = prediction), color = "black", fill = "#045a8d", size = 3, shape = 22) + # p
+  labs(x = "machine config.", y = "counts") +
+  #scale_color_manual(name = "Strength",values=c("#66c2a5", "#e78ac3", "#8da0cb", "#a6d854"))+
+  scale_color_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  scale_fill_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  #geom_hline(yintercept=0.3, linetype="dashed", color = "black")+
+  theme(legend.position = "none")+
+   labs(title = title_text,
+       subtitle = "",
+       caption = "")+
+  theme_minimal()+
+  theme(
+    axis.title = element_text(family = body_font, size=11),
+    axis.text.x = element_text(family = body_font, size=10),
+    axis.text.y = element_text(family = body_font, size=8),
+  # Legend
+  legend.position = "none",
+  legend.title = element_blank(),
+  legend.spacing = unit(0.5, 'cm'),
+  legend.key.height= unit(0.5, 'cm'),
+  legend.key.width= unit(0.7, 'cm'),
+  legend.text = element_text(family = body_font,
+                             size=13,
+                             face = 'plain',
+                             color = "grey10"),
+  
+  # TITLE
+  plot.title.position = "plot",
+  plot.title = element_textbox(margin = margin(20, 0, 10, 0),
+                               size = 14,
+                               family = title_font,
+                               face = "bold",
+                               width = unit(55, "lines")),
+  
+  # SUB-TITLE
+  #plot.subtitle = element_text(margin = margin(10, 0, 20, 0),
+   #                         size = 12,
+    #                        family = body_font,
+     #                       color = "grey15"),
+  # Caption
+  plot.caption = element_text(family=body_font,
+                              face="plain",
+                              size=8, 
+                              color="grey40",
+                              hjust=.5,
+                              margin=margin(20,0,0,0)),
+  
+  plot.background = element_rect(color="white", fill="white"),
+  plot.margin = margin(20, 40, 20, 40)
+)
+
+
+g1
+
+
+ggsave("res_activities_LLM.svg",width=4,height=5)
+```
+
+
+
+
+
+No differences in entities:
+
+
+```{r}
+a2 <- aov_car(num_ent ~ machine_type*model  + Error(nummer/model), tdata, anova_table = list(es = "pes"))
+a2
+```
+
+```{r}
+# means
+group_means_ent <- emmeans(a2, c("machine_type")) 
+group_means_ent
+
+pairs(emmeans(a2, ~ machine_type), adjust = "none") -> deltas 
+
+print("pair contrasts and test statistics")
+cat("\n\n") 
+deltas 
+
+cat("\n\n") 
+
+print("pair contrasts and their CIs")
+cat("\n\n") 
+confint(deltas, level = 0.95) -> diff_data
+```
+
+```{r}
+
+pd <- position_dodge(width = 0.15)
+
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Mean number of listed entities"
+subtitle_text <- "identified by different LLMs per machine type condition"
+caption_text <- "Note. Bars show means, error bars show 95% CIs."
+
+
+g2 <- ggplot(tdata, aes(x = machine_type, y = num_ent, fill = machine_type)) +
+  guides(fill=FALSE)+
+  #facet_wrap( ~ model, labeller = label_both, nrow = 1, strip.position = "top")+
+    scale_y_continuous(limits = c(0,22), breaks=seq(0, 22, 2), expand = c(0,0)) +
+  scale_x_discrete(labels = c("dysf.", "func.", "scr.")) +
+  #geom_jitter(alpha = 0.15, width = 0.15, height = 0.02, aes(color = structure)) +
+  #geom_violin(alpha = 0.2, color = NA, trim = T)+
+  #geom_line(position = pd, size = 1, alpha=0.15, aes(group = subj_code)) +
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="line", 
+   #           shape = 22, size = 1.5, alpha = 0.9)+
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="point", 
+   #           color = "black", shape = 22, size = 3, group=1, alpha = 1, fill = "black")+
+  stat_summary(aes(y=num_ent, group=1), fun.y=mean, position=position_dodge(width=0.95),geom="bar", color = "black", alpha = 0.6)+
+  stat_summary(aes(y =num_ent, group=1), fun.data = mean_cl_boot, 
+               geom = "errorbar", width = 0, size = 1) +
+  #stat_summary(aes(label=round(after_stat(y),2), group = 1), fun.y=mean, geom="text", size=4,
+   #          vjust = -3.9, hjust = 0.6)+
+  #geom_point(data = preds_plot, aes(x = case, y = prediction), color = "black", fill = "black", size = 3, shape = 22) + # predictions
+  #stat_summary(aes(y = rating,group=1), fun.y=median, geom="point", color = "black", shape = 3, size = 4, 
+  #            group=1, alpha = 1, position = position_dodge(width = 0.5))+
+  #geom_point(data = preds, aes(x = case, y = prediction), color = "black", fill = "#045a8d", size = 3, shape = 22) + # p
+  labs(x = "machine config.", y = "counts") +
+  #scale_color_manual(name = "Strength",values=c("#66c2a5", "#e78ac3", "#8da0cb", "#a6d854"))+
+  scale_color_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  scale_fill_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  #geom_hline(yintercept=0.3, linetype="dashed", color = "black")+
+  theme(legend.position = "none")+
+   labs(title = title_text,
+       subtitle = "",
+       caption = "")+
+  theme_minimal()+
+  theme(
+    axis.title = element_text(family = body_font, size=11),
+    axis.text.x = element_text(family = body_font, size=10),
+    axis.text.y = element_text(family = body_font, size=8),
+  # Legend
+  legend.position = "none",
+  legend.title = element_blank(),
+  legend.spacing = unit(0.5, 'cm'),
+  legend.key.height= unit(0.5, 'cm'),
+  legend.key.width= unit(0.7, 'cm'),
+  legend.text = element_text(family = body_font,
+                             size=13,
+                             face = 'plain',
+                             color = "grey10"),
+  
+  # TITLE
+  plot.title.position = "plot",
+  plot.title = element_textbox(margin = margin(20, 0, 10, 0),
+                               size = 14,
+                               family = title_font,
+                               face = "bold",
+                               width = unit(55, "lines")),
+  
+  # SUB-TITLE
+  #plot.subtitle = element_text(margin = margin(10, 0, 20, 0),
+   #                         size = 12,
+    #                        family = body_font,
+     #                       color = "grey15"),
+  # Caption
+  plot.caption = element_text(family=body_font,
+                              face="plain",
+                              size=8, 
+                              color="grey40",
+                              hjust=.5,
+                              margin=margin(20,0,0,0)),
+  
+  plot.background = element_rect(color="white", fill="white"),
+  plot.margin = margin(20, 40, 20, 40)
+)
+
+
+g2
+
+
+ggsave("res_entities_LLM.svg",width=4,height=5)
+```
+
+
+```{r}
+
+pd <- position_dodge(width = 0.15)
+
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Mean number of listed entities"
+subtitle_text <- "identified by different LLMs per machine type condition"
+caption_text <- "Note. Bars show means, error bars show 95% CIs."
+
+
+g3 <- ggplot(tdata, aes(x = model, y = num_ent, fill = model)) +
+  guides(fill=FALSE)+
+  #facet_wrap( ~ model, labeller = label_both, nrow = 1, strip.position = "top")+
+    scale_y_continuous(limits = c(0,22), breaks=seq(0, 22, 2), expand = c(0,0)) +
+  #scale_x_discrete(labels = c("dysf.", "func.", "sep.")) +
+  #geom_jitter(alpha = 0.15, width = 0.15, height = 0.02, aes(color = structure)) +
+  #geom_violin(alpha = 0.2, color = NA, trim = T)+
+  #geom_line(position = pd, size = 1, alpha=0.15, aes(group = subj_code)) +
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="line", 
+   #           shape = 22, size = 1.5, alpha = 0.9)+
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="point", 
+   #           color = "black", shape = 22, size = 3, group=1, alpha = 1, fill = "black")+
+  stat_summary(aes(y=num_ent, group=1), fun.y=mean, position=position_dodge(width=0.95),geom="bar", color = "black", alpha = 0.6)+
+  stat_summary(aes(y =num_ent, group=1), fun.data = mean_cl_boot, 
+               geom = "errorbar", width = 0, size = 1) +
+  #stat_summary(aes(label=round(after_stat(y),2), group = 1), fun.y=mean, geom="text", size=4,
+   #          vjust = -3.9, hjust = 0.6)+
+  #geom_point(data = preds_plot, aes(x = case, y = prediction), color = "black", fill = "black", size = 3, shape = 22) + # predictions
+  #stat_summary(aes(y = rating,group=1), fun.y=median, geom="point", color = "black", shape = 3, size = 4, 
+  #            group=1, alpha = 1, position = position_dodge(width = 0.5))+
+  #geom_point(data = preds, aes(x = case, y = prediction), color = "black", fill = "#045a8d", size = 3, shape = 22) + # p
+  labs(x = "machine config.", y = "counts") +
+  #scale_color_manual(name = "Strength",values=c("#66c2a5", "#e78ac3", "#8da0cb", "#a6d854"))+
+  scale_color_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  scale_fill_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  #geom_hline(yintercept=0.3, linetype="dashed", color = "black")+
+  theme(legend.position = "none")+
+   labs(title = title_text,
+       subtitle = "",
+       caption = "")+
+  theme_minimal()+
+  theme(
+    axis.title = element_text(family = body_font, size=11),
+    axis.text.x = element_text(family = body_font, size=10),
+    axis.text.y = element_text(family = body_font, size=8),
+  # Legend
+  legend.position = "none",
+  legend.title = element_blank(),
+  legend.spacing = unit(0.5, 'cm'),
+  legend.key.height= unit(0.5, 'cm'),
+  legend.key.width= unit(0.7, 'cm'),
+  legend.text = element_text(family = body_font,
+                             size=13,
+                             face = 'plain',
+                             color = "grey10"),
+  
+  # TITLE
+  plot.title.position = "plot",
+  plot.title = element_textbox(margin = margin(20, 0, 10, 0),
+                               size = 14,
+                               family = title_font,
+                               face = "bold",
+                               width = unit(55, "lines")),
+  
+  # SUB-TITLE
+  #plot.subtitle = element_text(margin = margin(10, 0, 20, 0),
+   #                         size = 12,
+    #                        family = body_font,
+     #                       color = "grey15"),
+  # Caption
+  plot.caption = element_text(family=body_font,
+                              face="plain",
+                              size=8, 
+                              color="grey40",
+                              hjust=.5,
+                              margin=margin(20,0,0,0)),
+  
+  plot.background = element_rect(color="white", fill="white"),
+  plot.margin = margin(20, 40, 20, 40)
+)
+
+
+g3
+
+
+ggsave("res_MainEffect_entities.svg",width=4,height=5)
+```
+
+
+
+
+
+
+No differences in constrainings:
+
+
+```{r}
+a3 <- aov_car(num_arr ~ machine_type*model  + Error(nummer/model), tdata, anova_table = list(es = "pes"))
+a3
+```
+
+```{r}
+# means
+group_means_con <- emmeans(a3, c("machine_type")) 
+group_means_con
+
+pairs(emmeans(a3, ~ machine_type), adjust = "none") -> deltas 
+
+print("pair contrasts and test statistics")
+cat("\n\n") 
+deltas 
+
+cat("\n\n") 
+
+print("pair contrasts and their CIs")
+cat("\n\n") 
+confint(deltas, level = 0.95) -> diff_data
+```
+
+
+
+```{r}
+
+pd <- position_dodge(width = 0.15)
+
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Mean number of listed arrangements"
+subtitle_text <- "identified by different LLMs per machine type condition"
+caption_text <- "Note. Bars show means, error bars show 95% CIs."
+
+
+g4 <- ggplot(tdata, aes(x = machine_type, y = num_arr, fill = machine_type)) +
+  guides(fill=FALSE)+
+  #facet_wrap( ~ model, labeller = label_both, nrow = 1, strip.position = "top")+
+    scale_y_continuous(limits = c(0, 22), breaks=seq(0, 22, 2), expand = c(0,0)) +
+  scale_x_discrete(labels = c("dysf.", "func.", "scr.")) +
+  #geom_jitter(alpha = 0.15, width = 0.15, height = 0.02, aes(color = structure)) +
+  #geom_violin(alpha = 0.2, color = NA, trim = T)+
+  #geom_line(position = pd, size = 1, alpha=0.15, aes(group = subj_code)) +
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="line", 
+   #           shape = 22, size = 1.5, alpha = 0.9)+
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="point", 
+   #           color = "black", shape = 22, size = 3, group=1, alpha = 1, fill = "black")+
+  stat_summary(aes(y=num_arr, group=1), fun.y=mean, position=position_dodge(width=0.95),geom="bar", color = "black", alpha = 0.6)+
+  stat_summary(aes(y =num_arr, group=1), fun.data = mean_cl_boot, 
+               geom = "errorbar", width = 0, size = 1) +
+  #stat_summary(aes(label=round(after_stat(y),2), group = 1), fun.y=mean, geom="text", size=4,
+   #          vjust = -3.9, hjust = 0.6)+
+  #geom_point(data = preds_plot, aes(x = case, y = prediction), color = "black", fill = "black", size = 3, shape = 22) + # predictions
+  #stat_summary(aes(y = rating,group=1), fun.y=median, geom="point", color = "black", shape = 3, size = 4, 
+  #            group=1, alpha = 1, position = position_dodge(width = 0.5))+
+  #geom_point(data = preds, aes(x = case, y = prediction), color = "black", fill = "#045a8d", size = 3, shape = 22) + # p
+  labs(x = "Machine config.", y = "counts") +
+  #scale_color_manual(name = "Strength",values=c("#66c2a5", "#e78ac3", "#8da0cb", "#a6d854"))+
+  scale_color_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  scale_fill_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  #geom_hline(yintercept=0.3, linetype="dashed", color = "black")+
+  theme(legend.position = "none")+
+   labs(title = title_text,
+       subtitle = "",
+       caption = "")+
+  theme_minimal()+
+  theme(
+    axis.title = element_text(family = body_font, size=11),
+    axis.text.x = element_text(family = body_font, size=10),
+    axis.text.y = element_text(family = body_font, size=8),
+  # Legend
+  legend.position = "none",
+  legend.title = element_blank(),
+  legend.spacing = unit(0.5, 'cm'),
+  legend.key.height= unit(0.5, 'cm'),
+  legend.key.width= unit(0.7, 'cm'),
+  legend.text = element_text(family = body_font,
+                             size=13,
+                             face = 'plain',
+                             color = "grey10"),
+  
+  # TITLE
+  plot.title.position = "plot",
+  plot.title = element_textbox(margin = margin(20, 0, 10, 0),
+                               size = 14,
+                               family = title_font,
+                               face = "bold",
+                               width = unit(55, "lines")),
+  
+  # SUB-TITLE
+  #plot.subtitle = element_text(margin = margin(10, 0, 20, 0),
+   #                         size = 12,
+    #                        family = body_font,
+     #                       color = "grey15"),
+  # Caption
+  plot.caption = element_text(family=body_font,
+                              face="plain",
+                              size=8, 
+                              color="grey40",
+                              hjust=.5,
+                              margin=margin(20,0,0,0)),
+  
+  plot.background = element_rect(color="white", fill="white"),
+  plot.margin = margin(20, 40, 20, 40)
+)
+
+
+g4
+
+
+
+
+ggsave("res_constrainings_LLM.svg",width=4,height=5)
+```
+
+
+```{r}
+
+pd <- position_dodge(width = 0.15)
+
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Mean number of listed arrangements"
+subtitle_text <- "identified by different LLMs per machine type condition"
+caption_text <- "Note. Bars show means, error bars show 95% CIs."
+
+
+g5 <- ggplot(tdata, aes(x = model, y = num_arr, fill = model)) +
+  guides(fill=FALSE)+
+  #facet_wrap( ~ model, labeller = label_both, nrow = 1, strip.position = "top")+
+    scale_y_continuous(limits = c(0, 22), breaks=seq(0, 22, 2), expand = c(0,0)) +
+  #scale_x_discrete(labels = c("dysf.", "func.", "sep.")) +
+  #geom_jitter(alpha = 0.15, width = 0.15, height = 0.02, aes(color = structure)) +
+  #geom_violin(alpha = 0.2, color = NA, trim = T)+
+  #geom_line(position = pd, size = 1, alpha=0.15, aes(group = subj_code)) +
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="line", 
+   #           shape = 22, size = 1.5, alpha = 0.9)+
+  #stat_summary(aes(y = prediction, group=1), fun.y=mean, geom="point", 
+   #           color = "black", shape = 22, size = 3, group=1, alpha = 1, fill = "black")+
+  stat_summary(aes(y=num_arr, group=1), fun.y=mean, position=position_dodge(width=0.95),geom="bar", color = "black", alpha = 0.6)+
+  stat_summary(aes(y =num_arr, group=1), fun.data = mean_cl_boot, 
+               geom = "errorbar", width = 0, size = 1) +
+  #stat_summary(aes(label=round(after_stat(y),2), group = 1), fun.y=mean, geom="text", size=4,
+   #          vjust = -3.9, hjust = 0.6)+
+  #geom_point(data = preds_plot, aes(x = case, y = prediction), color = "black", fill = "black", size = 3, shape = 22) + # predictions
+  #stat_summary(aes(y = rating,group=1), fun.y=median, geom="point", color = "black", shape = 3, size = 4, 
+  #            group=1, alpha = 1, position = position_dodge(width = 0.5))+
+  #geom_point(data = preds, aes(x = case, y = prediction), color = "black", fill = "#045a8d", size = 3, shape = 22) + # p
+  labs(x = "Machine config.", y = "counts") +
+  #scale_color_manual(name = "Strength",values=c("#66c2a5", "#e78ac3", "#8da0cb", "#a6d854"))+
+  scale_color_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  scale_fill_manual(values=c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3"))+
+  #geom_hline(yintercept=0.3, linetype="dashed", color = "black")+
+  theme(legend.position = "none")+
+   labs(title = title_text,
+       subtitle = "",
+       caption = "")+
+  theme_minimal()+
+  theme(
+    axis.title = element_text(family = body_font, size=11),
+    axis.text.x = element_text(family = body_font, size=10),
+    axis.text.y = element_text(family = body_font, size=8),
+  # Legend
+  legend.position = "none",
+  legend.title = element_blank(),
+  legend.spacing = unit(0.5, 'cm'),
+  legend.key.height= unit(0.5, 'cm'),
+  legend.key.width= unit(0.7, 'cm'),
+  legend.text = element_text(family = body_font,
+                             size=13,
+                             face = 'plain',
+                             color = "grey10"),
+  
+  # TITLE
+  plot.title.position = "plot",
+  plot.title = element_textbox(margin = margin(20, 0, 10, 0),
+                               size = 14,
+                               family = title_font,
+                               face = "bold",
+                               width = unit(55, "lines")),
+  
+  # SUB-TITLE
+  #plot.subtitle = element_text(margin = margin(10, 0, 20, 0),
+   #                         size = 12,
+    #                        family = body_font,
+     #                       color = "grey15"),
+  # Caption
+  plot.caption = element_text(family=body_font,
+                              face="plain",
+                              size=8, 
+                              color="grey40",
+                              hjust=.5,
+                              margin=margin(20,0,0,0)),
+  
+  plot.background = element_rect(color="white", fill="white"),
+  plot.margin = margin(20, 40, 20, 40)
+)
+
+
+g5
+
+
+
+
+ggsave("res_MainEffectModel_constrainings.svg",width=4,height=5)
+```
+
+
+
+```{r}
+# Load the library
+library(patchwork)
+
+# Combine the plots side-by-side
+G <- g1 + g2 + g4
+G
+
+G <- g1 + g2 + g4 + 
+  plot_layout(guides = 'collect') & # Collect guides to save space
+  theme(plot.margin = unit(c(0,0,0,0.2), "cm")) # Set margins to 0
+G
+
+ggsave("Exp1_Results.svg",width=11,height=5)
+ggsave("Exp1_Results.pdf",width=11,height=5)
+# Combine the plots in a 2-by-2 grid (g1, g2 on top, g3 below)
+#(g1 + g2) / g3
+```
+
+
