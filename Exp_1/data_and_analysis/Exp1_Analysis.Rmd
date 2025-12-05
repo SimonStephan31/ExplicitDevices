@@ -1,6 +1,6 @@
 ---
 title: "Analysis"
-author: "Simon Stephan"
+author: ""
 output:  
   html_document:
     number_sections: true
@@ -45,10 +45,14 @@ table(tdata$machine_type)
 ```
 
 ```{r}
-mean(tdata$age)
-sd(tdata$age)
-min(tdata$age)
-max(tdata$age)
+tdata_demogr <- read_delim("Exp1_subj_explanations.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+
+mean(tdata_demogr$age)
+sd(tdata_demogr$age)
+min(tdata_demogr$age)
+max(tdata_demogr$age)
 ```
 
 
