@@ -1,0 +1,44 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Folder content:
+
+Exp3_Analysis.Rmd		(the R script of the analysis) 
+Exp3_Analysis.html 		(knitted/compiled version of the analysis script)
+exp3_data.csv			(see below)
+mech. exp 3.py			(see below)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+mech. exp 3.py
+
+The python script used to conduct the parsing analysis with GPT
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+exp_3_data.csv
+
+Contains the raw data file used in the R script
+
+Columns: 
+"i"			(participant ID)
+"exp" 			(experimental condition, where 0 is "scrambled", 1 is "mechanism") 
+"composition" 		(the three mechanism choices made by participants)
+"A"			(participants' explanation for their first choice)
+"B"			(participants' explanation or their second choice)
+"C"			(participants explanation or their third choice)
+"kA"			(list of mentioned dispositions for first component) 
+"nA"			(number of mentioned dispositions or this component) 
+"mA"			(number of joint dispositions of that component with other components of the present mechanism)
+... same logic applies to the other columns
+
+"age"			(participants' age in years)
+"gender"		(participants' gender)
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Exp3_Analysis.Rmd	(the R script of the analysis) 
+Exp3_Analysis.html 	(knitted/compiled version of the analysis script) 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+

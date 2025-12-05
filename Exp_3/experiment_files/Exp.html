@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Demo Exp</title>
+    <script src="jspsych/jspsych.js"></script>
+    <script src="jspsych/plugin-html-button-response.js"></script>
+    <script src="jspsych/plugin-survey-multi-choice.js"></script>
+    <script src="jspsych/plugin-survey-likert.js"></script>
+    <script src="jspsych/plugin-html-slider-response.js"></script>
+	<script src="jspsych/plugin-image-keyboard-response.js"></script>
+	<script src="jspsych/plugin-html-keyboard-response.js"></script>
+    <script src="jspsych/plugin-preload.js"></script>
+    <script src="jspsych/plugin-survey-text.js"></script>
+    <script src="jspsych/plugin-survey-html-form.js"></script>
+    <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body></body>
+  <script>
+const prolific = "C9IHKL81",
+      Bestätigung = true, // CONDITION = 1
+      wieVieleBedingungen = 4;
+
+var jsPsych = initJsPsych({ experiment_width: 1000, on_finish: function(){ window.location = "https://app.prolific.com/submissions/complete?cc=" + prolific; }});
+const cVal = jsPsych.data.getURLVariable('c');
+const condition = (typeof cVal !== "undefined") ? Number(cVal) : CONDITION; 
+
+//jsPsych.data.addProperties({condition: condition});
+var scenario, Experimentalbedingung = true, Ziel = false;
+switch (condition % wieVieleBedingungen) { 
+  case 0: scenario = "archer";  Ziel = true; break;
+  case 1: scenario = "dragon";  Ziel = true; break;  
+  case 2: scenario = "archer";  Experimentalbedingung = false; break;
+  default: scenario = "dragon";  Experimentalbedingung = false; 
+}
+jsPsych.data.addProperties({experimentalbedingung: Number(Experimentalbedingung), scenario: scenario});
+
+// handle demo mode vs. test mode
+function answ_req() {
+   var ans_required; 
+   if(typeof cVal !== "undefined") ans_required = false;
+   else { ans_required = true; 
+    // Prevent participants from copy paste
+      document.addEventListener('contextmenu', event => event.preventDefault()); // Disables right-click menu
+      document.onselectstart = function() { return false; }; // Disables text selection 
+      document.onkeydown = function(e) { if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'x')) e.preventDefault(); }; // Disables Ctrl+C, Ctrl+V, and Ctrl+X 
+    }
+   return ans_required;
+}
+var answ_required = answ_req();
+function requiredHtml() { return answ_required ? " required='required' " : ""; }
+
+/* create timeline */
+var timeline = [];
+
+var styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerText = `
+  p { text-align: justify; }
+    .frage { border-bottom: 1px solid #cccccc; text-align: left; }
+  div.Auswahlmöglichkeiten { width: 100%; text-align: left; }
+  table { width: 100%; margin: 60px auto 50px auto; padding: 0; }
+  .frage { border-bottom: 1px solid #cccccc; text-align: left; }
+  td.Auswahlmöglichkeiten { width: 33%; text-align: left; vertical-align: bottom; }
+  td + td { padding-left: 25px; border-left: 1px solid #cccccc; }  
+  td p { text-align: left; }
+  #Bildbehälter {
+    text-align: center;
+    position: relative;
+    width: 1000px; }
+    #Bildbehälter img {
+    position: absolute; top: 0px; left: 0px; width: 100%; }`;
+document.head.appendChild(styleSheet);
+
+//////////////////////////////////////////////////////
+/* Confirmations */
+const confs = {
+  type: jsPsychSurveyMultiChoice,
+  questions: [
+    { prompt: "This study works properly only on Desktop PCs and Laptops, and not on Smartphones or Tablets. Before you proceed, please confirm that you take part via Desktop PC or Laptop.", 
+      name: 'DesktopConf', 
+      options: ['1: I confirm', '2: I do not confirm'], 
+      required: answ_required }, 
+    { prompt: "For the scientific utility of the results, it is very important that you provide complete and careful responses. How seriously will you take your participation in the study?", 
+      name: 'AttentConf', 
+      options: ['1: I will take it seriously', '2: I will not take it seriously'], 
+      required: answ_required }, 
+  ],
+  on_finish: function(data){ jsPsych.data.addProperties({desktop_conf: data.response.DesktopConf, attent_conf: data.response.AttentConf }); },
+  preamble: `<img src="img/uni_org_color_li.png" width = 100% />`
+};
+if (Bestätigung) timeline.push(confs);
+
+///////////////////////// scene
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+//returns THREE jsPsych survey-html-forms
+function Bune(experimentalbedingung, height, questionBlocks, hintergrundbild, Zieltext = "") {  
+  function setupRadioImage(groupName, ids) {
+            const radios = document.getElementsByName(groupName);
+            radios.forEach(radio => {
+              radio.addEventListener('change', function() {
+                ids.forEach(rid => {
+                  const img = document.getElementById(rid + "_img");
+                  if (!img) return; // skip if image not present
+                  img.style.opacity = (document.getElementById(rid).checked) ? "1" : "0";
+                  if(hintergrundbild == "nullHintergrund") document.getElementById("nullHintergrund").style.opacity = "0";
+                });
+              });
+            });
+          }
+
+  //shuffle(questionBlocks);  
+  var forms = [];
+
+  if (experimentalbedingung) { 
+    var txtHTML = `<div id="Bildbehälter" style="text-align: center; position: relative; display: block; width: 100%; height: ${height}px;">
+                  <img src="img/${hintergrundbild}.png" />`;    
+    for (let i = 0; i < 3; i++) {
+       txtHTML += `<img src="img/${questionBlocks[i].bildA}.png" id="${questionBlocks[i].bildA}_img" style="opacity:0;" />\n
+          <img src="img/${questionBlocks[i].bildB}.png" id="${questionBlocks[i].bildB}_img" style="opacity:0;" />`;
+      }
+    txtHTML += `</div>\n`;
+
+    // Build each randomized block
+    txtHTML += `<table><tr><td class="frage" colspan="3">Complete the scene by making three choices${Zieltext}. (You cannot rearrange anything else in the scene.)</td></tr>\n<tr>\n`;
+    questionBlocks.forEach(block => {
+      shuffle(block.radios);  // Shuffle radio options
+      txtHTML += `<td class="Auswahlmöglichkeiten">${block.prompt}<br/>\n`;
+      block.radios.forEach(radio => {
+        txtHTML += `<input type="radio" id="${radio.id}" name="${block.group}" value="${radio.value}" ${requiredHtml()}>\n`;
+        txtHTML += `<label for="${radio.id}">${radio.label}</label><br/>\n`;
+      });
+      txtHTML += `</td>\n`;    
+    });
+    txtHTML += `</tr>
+        <tr><td class="frage" style="padding-top: 50px" colspan="3">Once you made your choices, tell us:</td></tr>\n
+    <tr>\n`;
+    questionBlocks.forEach(block => {
+      txtHTML += `<td class="Auswahlmöglichkeiten">${block.disposition}<br/>\n
+        <textarea name="${block.group}_erklarung" rows="10" cols="40" ${requiredHtml()}></textarea></td>\n`;    
+    });  
+    txtHTML += `</tr></table>\n`;
+
+    return [{
+      type: jsPsychSurveyHtmlForm,
+      name: 'Hauptprufung',
+      preamble: "",
+      html: txtHTML,
+      on_load: function() {
+          window.scrollTo(0, 0);          
+          for (let i = 0; i < 3; i++) setupRadioImage(questionBlocks[i].group, [questionBlocks[i].bildA, questionBlocks[i].bildB]); // Link group to the relevant images
+        },
+      on_finish: function(data) {
+        for (let i = 0; i < 3; i++) jsPsych.data.addProperties({
+            [`ant_${questionBlocks[i].group}`]: data.response[questionBlocks[i].group],
+            [`erklarung_${questionBlocks[i].group}`]: data.response[`${questionBlocks[i].group}_erklarung`]
+          });
+      }
+    }];
+  }
+  else //kontrolbedingung
+  {
+    for (let i = 0; i < 3; i++) {
+      const block = questionBlocks[i];
+      var txtHTML = `<div id="Bildbehälter" style="text-align: center; position: relative; display: block; width: 100%; height: ${height}px;">
+                    <img id="nullHintergrund" src="img/nullHintergrund.png" style="opacity:1;"/> 
+        <img src="img/${block.bildA}.png" id="${block.bildA}_img" style="opacity:0;" />\n
+        <img src="img/${block.bildB}.png" id="${block.bildB}_img" style="opacity:0;" />\n
+        </div>
+        <div class="frage" style="padding-top: 50px">${block.prompt}</div>
+        <div class="Auswahlmöglichkeiten">`;
+
+      block.radios.forEach(radio => {
+        txtHTML += `<input type="radio" id="${radio.id}" name="${block.group}" value="${radio.value}" ${requiredHtml()}>
+                    <label for="${radio.id}">${radio.label}</label><br/>`;
+      });
+      txtHTML += `</div>
+                  <div class="Auswahlmöglichkeiten" style="padding-top: 50px">Once you made your choice, tell us: ${block.disposition}<br/>
+                    <textarea name="${block.group}_erklarung" rows="10" cols="133" ${requiredHtml()}></textarea>
+                  </div>`;
+
+      forms.push({
+        type: jsPsychSurveyHtmlForm,
+        name: `Hauptprufung_${i}`,
+        preamble: "",
+        html: txtHTML,
+        on_load: function() {
+          window.scrollTo(0, 0);          
+          setupRadioImage(block.group, [block.bildA, block.bildB]); // Link group to the relevant images
+        },
+        on_finish: function(data) {
+          jsPsych.data.addProperties({
+            [`ant_${block.group}`]: data.response[block.group],
+            [`erklarung_${block.group}`]: data.response[`${block.group}_erklarung`]
+          });
+        }
+      });
+    }    
+  }
+  return forms;
+}
+
+
+
+const png1 = Experimentalbedingung ? "machine" : "allein";
+var height, questionBlocks, hintergrundbild, Zieltext = "";
+switch (scenario) {
+  case "dragon": 
+    height = Experimentalbedingung ? 300 : 185;   
+    hintergrundbild = Experimentalbedingung ? "waschmaschine" : "nullHintergrund";
+    if(Ziel) Zieltext = " <strong>so that the washing machine starts</strong>";
+
+    questionBlocks = [ {
+        prompt: "Choose one <b>creature</b>:",
+        group: "A",
+        bildA: `${png1}_wm_ninja`, 
+        bildB: `${png1}_wm_drachen`,
+        radios: [ { id: `${png1}_wm_ninja`, value: "A", label: "A shuriken-throwing ninja" },
+                  { id: `${png1}_wm_drachen`, value: "B", label: "Draco the Winddragon" } ],
+        disposition: "What can this creature do?"
+      },{
+        prompt: "Choose one <b>object</b>:",
+        group: "B",
+        bildA: `${png1}_wm_gewicht`,
+        bildB: `${png1}_wm_schiff`, 
+        radios: [ { id: `${png1}_wm_gewicht`, value: "A", label: "weight on a rope" },
+                  { id: `${png1}_wm_schiff`, value: "B", label: "battle ship in water tank" } ],
+        disposition: "What can this object do?"
+      },{
+        prompt: "Choose the position of the <b>button</b>:",
+        group: "C",
+        bildA: `${png1}_wm_tasteLinks`,
+        bildB: `${png1}_wm_tasteOben`,
+        radios: [ { id: `${png1}_wm_tasteLinks`, value: "B", label: "facing leftward" },
+                  { id: `${png1}_wm_tasteOben`, value: "A", label: "facing upwards" } ],
+        disposition: "What can this button do?"
+      }
+    ];    
+    break;
+
+  default: //"archer"
+      height = Experimentalbedingung ? 450 : 180;   
+      hintergrundbild = Experimentalbedingung ? "bogenschutze" : "nullHintergrund";
+      if(Ziel) Zieltext = " <strong>so that the bulb lights up</strong>";
+      questionBlocks = [ {
+          prompt: "Choose one <b>projectile</b>:",
+          group: "A",
+          bildA: `${png1}_ar_handschuh`,
+          bildB: `${png1}_ar_spitze`,
+          radios: [
+            { id: `${png1}_ar_handschuh`, value: "A", label: "boxing arrow" },
+            { id: `${png1}_ar_spitze`, value: "B", label: "pointy arrow" } ],
+          disposition: "What can this projectile do?"
+        },{
+          prompt: "Choose one <b>object</b>:",
+          group: "B",
+          bildA: `${png1}_ar_ballon`,
+          bildB: `${png1}_ar_kugel`,
+          radios: [
+            { id: `${png1}_ar_ballon`, value: "B", label: "balloon with weight" },
+            { id: `${png1}_ar_kugel`, value: "A", label: "bowling ball" } ],
+          disposition: "What can this object do?"
+        },{
+          prompt: "Choose one <b>direction</b>:",
+          group: "C",
+          bildA: `${png1}_ar_unten`,
+          bildB: `${png1}_ar_oben`,
+          radios: [
+            { id: `${png1}_ar_unten`, value: "A", label: "downward" },
+            { id: `${png1}_ar_oben`, value: "B", label: "upward" }
+          ],
+          disposition: "What can the the bow aimed in this direction do?"
+        }
+      ];
+}
+for(let j=0; j<questionBlocks.length; j++) timeline.push({ type: jsPsychPreload, images: [`img/${questionBlocks[j].bildA}.png`, `img/${questionBlocks[j].bildB}.png`] });
+timeline.push(...Bune(Experimentalbedingung, height, questionBlocks, hintergrundbild, Zieltext));
+
+
+/////////////////////////////////////// demographics
+const demogr = {
+  type: jsPsychSurveyHtmlForm,
+  preamble: '<h3>Demographic Questions</h3>',
+  html: `
+    <p>
+      <label>How old are you?</label><br>
+      <input name="Age" type="number" min="0" placeholder="Age as a number" required>
+    </p>
+    <p>
+      <label>Please indicate with which gender you identify:</label><br>
+      <label><input type="radio" name="Gender" value="male" required> 1: male</label><br>
+      <label><input type="radio" name="Gender" value="female"> 2: female</label><br>
+      <label><input type="radio" name="Gender" value="non-binary"> 3: non-binary</label><br>
+      <label><input type="radio" name="Gender" value="prefer not to say"> 4: prefer not to say</label>
+    </p>
+  `,
+  on_finish: data => {
+    jsPsych.data.addProperties({
+      age: data.response.Age,
+      gender: data.response.Gender
+    });
+  }
+};
+timeline.push(demogr);
+
+
+/////////////////////////////////////// technical issues
+var tech_issues = {
+  type: jsPsychSurveyText,
+  name: 'Tech_issue_query',
+  questions: [
+    {prompt: 'In the text field below you can report any errors that you came across during the study (e.g., technical issues, layout problems, spelling, logic and flow).', 
+    rows: 10, 
+    columns: 100, 
+    required: false,
+    name: 'Tech_issue_report'
+    },
+  ],
+  on_finish: function(data){
+	  jsPsych.data.addProperties({tech_issues: data.response.Tech_issue_report});
+  },
+}
+//timeline.push(tech_issues);
+
+///////////////////////////////////// debriefing
+
+var debriefing = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: 
+    `<img src="img/uni_org_color_li.png" width = 100%></img>
+    <p><b>Thank you for taking part in this study!</b></p>
+  
+    <p>The aim of this experiment is to find out more about how people reason about causal mechanisms. 
+    If you are interested in further details or if you have any questions or comments concerning the experiment, 
+    feel free to contact me (XXXX) under <i>XXX@XXX</i>
+    
+    <p>To ensure you receive your reward, please click the button below to return to the Prolific website:</p>`,
+    choices: ['Finish study']
+};
+timeline.push(debriefing);
+
+jsPsych.run(timeline);
+  </script>
+</html>

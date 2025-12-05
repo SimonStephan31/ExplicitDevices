@@ -1,0 +1,613 @@
+---
+title: "Analysis"
+author: ""
+output:  
+  html_document:
+    number_sections: true
+    toc: true  
+    collapsed: false
+    toc_float: true
+    smooth_scroll: false
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+# packages
+library(ez)
+library(reshape2)
+library(reshape)
+library(ggplot2)
+library(plyr)
+library(pastecs)
+library(ez)
+library(data.table)
+library(tidyverse) 
+
+library(showtext)
+library(ggtext)
+library(readr)
+library(readxl)
+library(dplyr)
+
+#font_add_google("Poppins", "Poppins")
+#font_add_google("Roboto Mono", "Roboto Mono")
+#showtext_auto()
+```
+
+
+```{r}
+library(readr)
+tdata <- read_delim("exp3_data.csv", delim = ",", 
+    escape_double = FALSE, trim_ws = TRUE)
+```
+# Sample information
+
+```{r}
+
+summary(tdata$age)
+sd(tdata$age)
+```
+```{r}
+table(tdata$exp, tdata$scenario)
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(binom)
+
+# Ensure condition factor is labeled nicely
+tdata <- tdata %>%
+  mutate(exp = factor(exp,
+                                        levels = c(0,1),
+                                        labels = c("scrambled", "functional")))
+
+
+# Summarize counts + proportions + CIs
+composition_summary <- tdata %>%
+  group_by(exp, composition) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(exp) %>%
+  mutate(total = sum(n),
+         prop = n / total) %>%
+  rowwise() %>%
+  mutate(ci_low = binom.confint(n, total, methods = "wilson")$lower,
+         ci_high = binom.confint(n, total, methods = "wilson")$upper) %>%
+  ungroup() %>%
+  mutate(color_group = ifelse(composition %in% c("AAA", "BBB"), "congruent", "incongruent"))
+
+# Publication-friendly colors
+composition_colors <- c(
+  "congruent" = "#4CAF50",   # soft green
+  "incongruent" = "#D95F5F"  # soft desaturated red
+)
+
+# Publication-ready plot
+ggplot(composition_summary, aes(x = composition, y = prop, fill = color_group)) +
+  geom_col(color = "black", width = 0.75) +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high), width = 0.15, linewidth = 0.7) +
+  scale_fill_manual(values = composition_colors, labels = c("congruent" = "congruent", "incongruent" = "incongruent")) +
+  facet_wrap(~ exp, nrow = 1) +
+  labs(x = "Mech. Composition",
+       y = "Proportion of Participants",
+       fill = "Composition Type",
+       title = "Mech. Composition Distribution by Scene Type",
+       subtitle = "With 95% Wilson Confidence Intervals") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 14, margin = margin(b = 10)),
+    strip.text = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.position = "top",
+    legend.title = element_text(size = 15),
+    legend.text = element_text(size = 14),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )+
+  scale_y_continuous(limits = c(0, 1))
+
+ggsave("composition_plot.svg", width = 12, height = 5, device = "svg")
+
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(binom)
+
+
+
+# 3) Compute counts, proportions, and Wilson 95% CIs *per scenario and condition*
+composition_summary <- tdata %>%
+  group_by(scenario, exp, composition) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(scenario, exp) %>%
+  mutate(total = sum(n),
+         prop = n / total) %>%
+  rowwise() %>%
+  mutate(ci_low = binom.confint(n, total, methods = "wilson")$lower,
+         ci_high = binom.confint(n, total, methods = "wilson")$upper) %>%
+  ungroup()
+
+# 4) Color rule: AAA + BBB = congruent (green), all others = incongruent (red)
+composition_summary <- composition_summary %>%
+  mutate(color_group = ifelse(composition %in% c("AAA", "BBB"), "congruent", "incongruent"))
+
+# Softer publication-friendly colors
+composition_colors <- c(
+  congruent = "#4CAF50",     # soft balanced green
+  incongruent = "#D95F5F"    # soft desaturated red
+)
+
+# 5) Publication-ready plot
+p <- ggplot(composition_summary, aes(x = composition, y = prop, fill = color_group)) +
+  geom_col(color = "black", width = 0.75) +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high), width = 0.15, linewidth = 0.7) +
+  scale_fill_manual(values = composition_colors,
+                    labels = c("congruent" = "congruent", "incongruent" = "incongruent")) +
+
+  # Facet by scenario AND condition correctly:
+  facet_grid(scenario ~ exp) +
+
+  labs(x = "Response Composition",
+       y = "Proportion of Participants",
+       fill = "Composition Type") +
+
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 14, margin = margin(b = 10)),
+    strip.text = element_text(size = 15, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.position = "top",
+    legend.title = element_text(size = 15),
+    legend.text = element_text(size = 14),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )+
+  scale_y_continuous(limits = c(0, 1))
+
+p
+ggsave("composition_plot_by_scenario.svg", plot = p, width = 10, height = 7, device = "svg")
+# save as pdf too 
+ggsave("composition_plot_by_scenario.pdf", plot = p, width = 10, height = 7, device = "pdf")
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(binom)
+
+
+tdata <- tdata %>%
+  mutate(composition_type = ifelse(composition %in% c("AAA", "BBB"),
+                                   "congruent", 
+                                   "incongruent"))
+
+
+
+
+# 3) Compute counts, proportions, and Wilson 95% CIs *per scenario and condition*
+composition_summary <- tdata %>%
+  group_by(exp, composition_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(exp) %>%
+  mutate(total = sum(n),
+         prop = n / total) %>%
+  rowwise() %>%
+  mutate(ci_low = binom.confint(n, total, methods = "wilson")$lower,
+         ci_high = binom.confint(n, total, methods = "wilson")$upper) %>%
+  ungroup()
+
+# 4) Color rule: AAA + BBB = congruent (green), all others = incongruent (red)
+composition_summary <- composition_summary %>%
+  mutate(color_group = ifelse(composition_type %in% c("congruent"), "congruent", "incongruent"))
+
+# Softer publication-friendly colors
+composition_colors <- c(
+  congruent = "#4CAF50",     # soft balanced green
+  incongruent = "#D95F5F"    # soft desaturated red
+)
+
+# 5) Publication-ready plot
+p <- ggplot(composition_summary, aes(x = composition_type, y = prop, fill = color_group)) +
+  geom_col(color = "black", width = 0.75) +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high), width = 0.15, linewidth = 0.7) +
+  scale_fill_manual(values = composition_colors,
+                    labels = c("congruent" = "congruent", "incongruent" = "incongruent")) +
+  facet_grid(~ exp) +
+
+  labs(x = "Response Composition",
+       y = "Proportion of Participants",
+       fill = "Composition Type",
+       title = "Mech. Composition Distribution by Condition",
+       subtitle = "95% Wilson Confidence Intervals") +
+
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 14, margin = margin(b = 10)),
+    strip.text = element_text(size = 15, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  ) +
+  scale_y_continuous(limits = c(0, 1))
+
+p
+
+
+ggsave("composition_overall.svg", plot = p, width = 8, height = 5, device = "svg")
+# save as pdf too 
+ggsave("composition_overall.pdf", plot = p, width = 8, height = 5, device = "pdf")
+```
+
+
+# Analysis
+
+```{r}
+tdata <- tdata %>%
+  mutate(correct = composition %in% c("AAA", "BBB")) %>%
+  mutate(correct = as.numeric(correct))   # logistic regression needs 0/1
+# Logistic regression
+
+model <- glm(correct ~ exp + scenario,
+             data = tdata,
+             family = binomial(link = "logit"))
+summary(model)
+
+```
+get one-sided p value
+
+```{r}
+# Extract condition coefficient:
+b <- coef(model)["expfunctional"]
+
+# Wald one-sided p-value:
+p_value_one_sided <- pnorm(b / summary(model)$coefficients["expfunctional","Std. Error"], lower.tail = FALSE)
+p_value_one_sided
+
+```
+
+Odds ratios
+
+```{r}
+exp(cbind(OR = coef(model), confint(model)))
+
+```
+
+```{r}
+library(ggeffects)
+pred <- ggeffect(model, terms = "exp")
+pred
+
+```
+
+
+```{r}
+library(ggeffects)
+library(ggplot2)
+
+pred <- ggeffect(model, terms = "exp") %>% 
+  as.data.frame()
+
+prob_plot <- ggplot(pred, aes(x = x, y = predicted)) +
+  geom_col(width = 0.6, fill = "gray70", color = "black") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                width = 0.15, linewidth = 1) +
+  labs(
+    x = "Condition",
+    y = "Proportion",
+    title = "Congruent Response Probability by Condition"
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )+
+  scale_y_continuous(limits = c(0, 1))
+
+prob_plot
+ggsave("composition_congruent.svg", plot = prob_plot, width = 8, height = 5, device = "svg")
+# save as pdf too 
+ggsave("composition_congruent.pdf", plot = prob_plot, width = 8, height = 5, device = "pdf")
+
+```
+
+
+
+
+
+
+```{r}
+library(dplyr)
+
+raw_props <- tdata %>%
+  group_by(exp, scenario) %>%
+  summarize(
+    correct_rate = mean(correct),
+    n = n(),
+    .groups = "drop"
+  )
+
+
+library(ggeffects)
+
+model_est <- ggeffect(model, terms = "exp") %>%
+  as.data.frame() %>%
+  rename(
+    condition = x,
+    predicted = predicted,
+    ci_low = conf.low,
+    ci_high = conf.high
+  )
+
+
+library(ggplot2)
+
+combined_plot <- ggplot() +
+
+  # Raw observed proportions (per scenario)
+  geom_point(data = raw_props,
+             aes(x = exp, y = correct_rate, color = scenario),
+             size = 4, alpha = 0.7, position = position_jitter(width = 0.05)) +
+
+  # Model-estimated probabilities (bold black point with CI)
+  geom_point(data = model_est,
+             aes(x = condition, y = predicted),
+             size = 6, shape = 21, fill = "black", color = "white") +
+  geom_errorbar(data = model_est,
+                aes(x = condition, ymin = ci_low, ymax = ci_high),
+                width = 0.12, linewidth = 1.2, color = "black") +
+
+  # Labels and theme
+  labs(
+    x = "Condition",
+    y = "Proportion",
+    title = "Congruent Response Proportions",
+    subtitle = "Scenario means (colored) and overall means (black with 95% CIs)"
+  ) +
+  scale_color_manual(values = c("archer" = "#4575b4", "dragon" = "#d73027"),
+                     name = "Scenario") +
+
+  theme_minimal(base_size = 16) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )+
+  scale_y_continuous(limits = c(0, 1))
+
+combined_plot
+ggsave("correct_response_combined_plot.svg", plot = combined_plot, width = 7.5, height = 5, device = "svg")
+# save as pdf too
+ggsave("correct_response_combined_plot.pdf", plot = combined_plot, width = 7.5, height = 5, device = "pdf")
+```
+
+```{r}
+library(rcompanion)
+
+nagelkerke(model)
+
+```
+
+
+
+A logistic regression predicting whether participants produced a congruent composition response revealed a strong main effect of condition. Participants in the \textit{mechanism} condition were substantially more likely to provide a congruent response than those in the \textit{scrambled} condition, $b = 2.23$, $SE = 0.37$, $z = 6.00$, $p < .001$, corresponding to an odds ratio of $OR = 9.33$ with a 95\% confidence interval of $[4.61,\ 19.83]$. Predicted probabilities indicated that participants in the scrambled condition responded congruently only 25\% of the time (95\% CI $[0.16,\ 0.35]$), whereas those in the mechanism condition responded congruently 75\% of the time (95\% CI $[0.65,\ 0.84]$).
+
+Overall, the model showed a substantial improvement over the null model ($\Delta$deviance = 45.50), and explained a meaningful proportion of variance, Nagelkerke's $R^2 = .32$.
+
+
+# Parsing analysis 
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(lme4)
+library(performance)
+library(emmeans)
+library(ggplot2)
+
+tdata <- tdata %>%
+  mutate(prop_mABC = ifelse(nABC > 0, mABC / nABC, NA))
+
+
+
+library(binom)
+
+prop_summary <- tdata %>%
+  group_by(exp) %>%
+  summarise(
+    m_total = sum(mABC),
+    n_total = sum(nABC),
+    .groups = "drop"
+  ) %>%
+  mutate(prop = m_total / n_total)
+
+# Compute Wilson CIs for each row (vectorized)
+ci <- binom::binom.wilson(prop_summary$m_total,
+                          prop_summary$n_total)
+
+prop_summary <- prop_summary %>%
+  mutate(
+    ci_low  = ci[,"lower"],
+    ci_high = ci[,"upper"]
+  )
+
+
+```
+
+
+```{r}
+library(ggplot2)
+
+ggplot(prop_summary, aes(x = exp, y = prop, fill = exp)) +
+  geom_col(color = "black", width = 0.7) +
+  geom_col(fill = "grey70", color = "black", width = 0.7) +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high),
+                width = 0.15, linewidth = 0.7) +
+  scale_y_continuous(limits = c(0, 1),
+                     labels = scales::percent_format(accuracy = 1)) +
+  labs(
+    x = "Condition",
+    y = "Percentage",
+    title = "Percentage of mentioned mechanism-relevant joint dispositions \namong all mentioned joint dispositions",
+    subtitle = "95% Wilson confidence intervals"
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(legend.position = "none")
+
+ggsave("parsing_proportion_plot.svg", width = 8, height = 5, device = "svg")
+# save as pdf too 
+ggsave("parsing_proportion_plot.pdf", width = 8, height = 5, device = "pdf")
+```
+
+```{r}
+library(dplyr)
+library(binom)
+
+prop_summary2 <- tdata %>%
+  group_by(exp, scenario) %>% 
+  summarise(
+    m_total = sum(mABC),
+    n_total = sum(nABC),
+    prop = m_total / n_total,
+    .groups = "drop"
+  )
+
+# Compute Wilson CIs for each row
+ci <- binom::binom.wilson(prop_summary2$m_total,
+                          prop_summary2$n_total)
+
+prop_summary2 <- prop_summary2 %>%
+  mutate(
+    ci_low  = ci[,"lower"],
+    ci_high = ci[,"upper"]
+  )
+
+```
+
+
+
+```{r}
+library(ggplot2)
+
+ggplot(prop_summary2, aes(x = exp, y = prop)) +
+  geom_col(fill = "grey70", color = "black", width = 0.7) +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high),
+                width = 0.15, linewidth = 0.7) +
+  scale_y_continuous(limits = c(0, 1),
+                     labels = scales::percent_format(accuracy = 1)) +
+  facet_wrap(~ scenario) +
+  labs(
+    x = "Scene Type",
+    y = "Percentage"
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(size = 15, face = "bold")
+  )
+ggsave("parsing_proportion_by_scenario_plot.svg", width = 10, height = 6, device = "svg")
+# save as pdf too 
+ggsave("parsing_proportion_by_scenario_plot.pdf", width = 10, height = 6, device = "pdf")
+```
+# Test 
+
+```{r}
+x <- c(
+  sum(tdata$mABC[tdata$exp == "functional"]),
+  sum(tdata$mABC[tdata$exp == "scrambled"])
+)
+
+n <- c(
+  sum(tdata$nABC[tdata$exp == "functional"]),
+  sum(tdata$nABC[tdata$exp == "scrambled"])
+)
+
+prop.test(x, n, alternative = "greater", correct = TRUE)
+
+```
+```{r}
+# Cohen's h function
+cohens_h <- function(p1, p2) {
+  2 * (asin(sqrt(p1)) - asin(sqrt(p2)))
+}
+
+# Your proportions
+p1 <- 0.6246154   # mechanism
+p2 <- 0.1018519    # scrambled
+
+# Compute h
+h <- cohens_h(p1, p2)
+h
+
+```
+A 2-sample test for equality of proportions with continuity correction showed that participants in the \textit{mechanism} condition mentioned 
+mechanism-relevant joint dispositions significantly more often (62.46\%) than participants in the 
+\textit{scrambled} condition (10.19\%). This difference was statistically significant, 
+$\chi^2(1) = 189.36,\, p < .001$ (one-tailed), with a 95\% confidence interval for the difference 
+in proportions ranging from 0.47 to 1.00. The effect size was extremely large, 
+Cohen's $h = 1.17$.
+
+
+
+
+## Test for each scenario 
+
+```{r}
+library(dplyr)
+
+run_prop_test <- function(scen) {
+  df <- tdata %>% filter(scenario == scen)
+
+  x <- c(sum(df$mABC[df$exp == "functional"]),
+         sum(df$mABC[df$exp == "scrambled"]))
+
+  n <- c(sum(df$nABC[df$exp == "functional"]),
+         sum(df$nABC[df$exp == "scrambled"]))
+
+  cat("\nScenario:", scen, "\n")
+  print(prop.test(x, n, alternative = "greater", correct = FALSE))
+}
+
+run_prop_test("archer")
+run_prop_test("dragon")
+
+```
+
+```{r}
+# Cohen's h function
+cohens_h <- function(p1, p2) {
+  2 * (asin(sqrt(p1)) - asin(sqrt(p2)))
+}
+
+# Archer scenario
+p1_archer <- 0.85276073   # mechanism
+p2_archer <- 0.1939394    # scrambled
+h_archer  <- cohens_h(p1_archer, p2_archer)
+h_archer
+
+# Dragon scenario
+p1_dragon <- 0.395061728   # mechanism
+p2_dragon <- 0.006289308   # scrambled
+h_dragon  <- cohens_h(p1_dragon, p2_dragon)
+h_dragon
+
+```
