@@ -40,8 +40,17 @@ showtext_auto()
 library(readr)
 exp_2_selection_data <- read_delim("exp_2_selection_data.csv", 
     delim = ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r}
+mean(exp_2_selection_data $age)
+sd(exp_2_selection_data $age)
+min(exp_2_selection_data $age)
+max(exp_2_selection_data $age)
+```
 
 
+```{r}
 # delete participatns who failed the mem_check_correct
 exp_2_selection_data <- exp_2_selection_data %>%
   filter(mem_check_correct == "correct")
@@ -50,12 +59,7 @@ exp_2_selection_data <- exp_2_selection_data %>%
 tdata <- exp_2_selection_data 
 ```
 
-```{r}
-mean(tdata$age)
-sd(tdata$age)
-min(tdata$age)
-max(tdata$age)
-```
+
 # Analysis of Choices 
 
 ```{r}

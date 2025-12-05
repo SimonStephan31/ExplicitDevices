@@ -1497,20 +1497,20 @@ exp_2_selection_data &lt;- read_delim(&quot;exp_2_selection_data.csv&quot;,
 ## 
 ## ℹ Use `spec()` to retrieve the full column specification for this data.
 ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>mean(exp_2_selection_data $age)</code></pre>
+<pre><code>## [1] 42.93056</code></pre>
+<pre class="r"><code>sd(exp_2_selection_data $age)</code></pre>
+<pre><code>## [1] 13.38857</code></pre>
+<pre class="r"><code>min(exp_2_selection_data $age)</code></pre>
+<pre><code>## [1] 20</code></pre>
+<pre class="r"><code>max(exp_2_selection_data $age)</code></pre>
+<pre><code>## [1] 78</code></pre>
 <pre class="r"><code># delete participatns who failed the mem_check_correct
 exp_2_selection_data &lt;- exp_2_selection_data %&gt;%
   filter(mem_check_correct == &quot;correct&quot;)
 
 
 tdata &lt;- exp_2_selection_data </code></pre>
-<pre class="r"><code>mean(tdata$age)</code></pre>
-<pre><code>## [1] 42.86429</code></pre>
-<pre class="r"><code>sd(tdata$age)</code></pre>
-<pre><code>## [1] 13.35633</code></pre>
-<pre class="r"><code>min(tdata$age)</code></pre>
-<pre><code>## [1] 20</code></pre>
-<pre class="r"><code>max(tdata$age)</code></pre>
-<pre><code>## [1] 78</code></pre>
 </div>
 <div id="analysis-of-choices" class="section level1" number="2">
 <h1><span class="header-section-number">2</span> Analysis of
