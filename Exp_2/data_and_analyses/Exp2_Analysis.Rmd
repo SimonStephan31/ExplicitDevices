@@ -606,6 +606,18 @@ cat("Cohen's h Effect Size:", h, "\n")
 library(readr)
 tdata <- read_delim("exp_2_explanation_parsings.csv", 
     delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+# make machine a factor and relable such that "separate_parts " becomes "scrambled" 
+
+tdata <- tdata %>%
+  mutate(
+    # Convert machine_type to a factor and relabel its levels
+    machine = fct_recode(
+      factor(machine),
+      "functional" = "functional",      # Relabel "functional" to "machine"
+      "scrambled" = "separate_parts"  # Relabel "separate_parts" to "separate parts"
+    )
+  )
 ```
 
 
