@@ -1,0 +1,72 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Folder content:
+
+Exp2_Analysis.Rmd		(the R script of the analysis) 
+Exp2_Analysis.html 		(knitted/compiled version of the analysis script)
+exp_2_selection_data.csv	(see below)
+exp_2_explanation_parsings.csv 	(see below)
+mech. exp 2.py			(see below)
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+exp_2_selection_data.csv
+
+Contains the raw data file used to analyze participants' device component selections.
+
+Columns: 
+"condition" 		(experimental condition, where 1 is "functional", 2 is "separate parts") 
+"subj_code" 		(participant ID) 
+"desktop_conf" 		(participants' response to the question asking them to confirm to take part via Desktop or Laptop)
+"attent_conf" 		(participants' response to the question asking them to confirm to take their participation seriously)
+"machine_type" 		(experimental condition again, but with labels)
+"sel_comp_cutter"	(participant selection of the component for the cutter object) 
+"expl_cutter"		(participant justification of their choice for that component) 
+"sel_comp_wheel"	(participant selection of the component for the wheel object) 
+"expl_wheel"		(participant justification of their choice for that component)
+... same logic applies to the remaining columns 
+
+"mem_check" 		(participants' response to a memory check question asking them to select the object that was not in the stimulus) 
+"mem_check_correct" 	(coding whether participants answered the memory check question correctly)
+"age"			(age in years) 
+"gender"		(gender)
+"tech_issues"		(potential technical issues participants may have experienced)
+"recorded_at"		(time step of participants' participation)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+mech. exp 2.py
+
+the python script used to do the parsing analysis with GPT
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+exp2_explanation_parsings.csv
+
+Contains the results of the GPT parsing over participants' descriptions. 
+
+Columns (only columns are listed below that differ from the ones described above): 
+
+"cutter_mention"	(coding of whether the participant mentioned interactional/joint dispositions for the cutter component) 
+"cutter_expresssions" 	(the exact expressions that were identified as referring to joint dispositions) 
+
+... same logic applies to subsequent columns 
+
+"i2"			(simply another subject number) 
+"cutter_mention 4" 	(same logic as earlier columns, but the entries now resulted from the more conservative coding prompt) 
+
+... same logic applies to subsequent columns 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Exp2_Analysis.Rmd	(the R script of the analysis) 
+Exp2_Analysis.html 	(knitted/compiled version of the analysis script) 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+

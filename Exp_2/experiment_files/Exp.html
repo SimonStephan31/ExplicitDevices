@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Demo Exp</title>
+    <script src="jspsych/jspsych.js"></script>
+    <script src="jspsych/plugin-html-button-response.js"></script>
+    <script src="jspsych/plugin-survey-multi-choice.js"></script>
+    <script src="jspsych/plugin-survey-likert.js"></script>
+    <script src="jspsych/plugin-html-slider-response.js"></script>
+	<script src="jspsych/plugin-image-keyboard-response.js"></script>
+	<script src="jspsych/plugin-html-keyboard-response.js"></script>
+    <script src="jspsych/plugin-preload.js"></script>
+    <script src="jspsych/plugin-survey-text.js"></script>
+    <script src="jspsych/plugin-survey-html-form.js"></script>
+    <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body></body>
+  <script>
+  
+// run study with ?demo=true at the end of url to have the demo mode
+
+
+  document.addEventListener('contextmenu', function(e) {
+  e.preventDefault();
+}); 
+
+// In your main JavaScript file (e.g., before jsPsych.init)
+//document.addEventListener('keydown', function(e) {
+  // Check for Ctrl+C, Ctrl+X, Ctrl+V (or Cmd for Mac)
+//  if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'x' || e.key === 'v')) {
+//    e.preventDefault(); // Prevent the default action (copy/cut/paste)
+    // Optional: Provide a message to the user
+    // alert("Copying/pasting is not allowed in this experiment.");
+//  }
+//});
+
+var jsPsych = initJsPsych({
+  experiment_width: 1000,
+  on_finish: function(){
+    window.location = "https://app.prolific.co/submissions/complete?cc=CBJKHDO6"
+  }
+});
+
+
+
+// handle demo mode vs. test mode
+
+var demo_mode = true; // in demo mode, answers to questions are not required and instruction test is always passed
+
+function answ_req() {
+   var ans_required; 
+   if(demo_mode == true){
+    ans_required = false; 
+   }
+   else{ans_required = true; 
+    // Prevent participants from copy paste
+      document.addEventListener('contextmenu', event => event.preventDefault()); // Disables right-click menu
+      document.onselectstart = function() {
+      return false;
+      }; // Disables text selection
+
+      // Disables Ctrl+C, Ctrl+V, and Ctrl+X
+      document.onkeydown = function(e) {
+      if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'x')) {
+        e.preventDefault();
+      }
+    };
+   }
+   return ans_required;
+}
+
+var answ_required = answ_req();
+
+console.log("demo mode = "+demo_mode, ", answers required: "+answ_required);
+
+
+
+var cVal = jsPsych.data.getURLVariable('c');
+var condition = (typeof cVal !== "undefined") ? Number(cVal) : 1; //= CONDITION; 
+//var condition = CONDITION; 
+
+
+jsPsych.data.addProperties({condition: condition});
+
+var subj_code;
+
+function makeid(length) {
+    var result           = '';
+    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var charactersLength = characters.length;
+    for ( var i = 0; i < length; i++ ) {
+      result += characters.charAt(Math.floor(Math.random() * 
+ charactersLength));
+   }
+   return result;
+}
+
+subj_code = makeid(12);
+
+console.log(subj_code);
+
+jsPsych.data.addProperties({subj_code: subj_code});
+
+
+
+/* create timeline */
+var timeline = [];
+
+/* preload images */
+var preload = {
+  type: jsPsychPreload,
+  images: ['img/uni_org_color_li.png', 
+    'img/machine_components.png', 
+    'img/cutter.png', 
+    'img/crossbow.png', 
+    'img/balloon.png', 
+    'img/wheel.png'
+  ]
+}
+timeline.push(preload);
+
+var styles = `
+  p {
+    text-align: justify
+  }
+  
+`
+var styleSheet = document.createElement("style")
+styleSheet.type = "text/css"
+styleSheet.innerText = styles
+document.head.appendChild(styleSheet)
+
+
+//////////////////////// images in the different conditions
+
+console.log(condition)
+
+var office_config; 
+
+//////////////////////////////////////////////////////
+/* Condition selection (just for offline demo) */
+
+var select = {
+  type: jsPsychSurveyText,
+  questions: [
+    {
+		prompt: 
+		`
+    <p><b>This is a Demo version of the experiment.</b></p>
+		<p><b>Select a condition: type in a number between 1 and 2.</b></p>
+
+    <p>1: functional</p>
+
+    <p>2: separate parts</p>
+		`, 
+		placeholder: 'number between 1 and 2',
+		required: answ_required,
+		name: 'CondSel',
+	},
+  ],
+	on_finish: function(data){
+	condition = data.response.CondSel,
+	console.log(condition);
+	} 
+}
+//timeline.push(select);
+
+
+
+//////////////////////////////////////////////////////
+/* Instructions ( all conditions)  */
+var cond_selected = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: function () {
+    return "You chose to see Condition "+condition;
+		},
+    choices: ['Continue']
+};
+//timeline.push(select, cond_selected);
+
+
+/////////////////////////////////////////////////////
+/* Confirmations */
+//////////////////////////////////////////////////////
+/* Confirmations */
+var confs = {
+  type: jsPsychSurveyMultiChoice,
+  questions: [
+    {
+      prompt: "This study works properly only on Desktop PCs and Laptops, and not on Smartphones or Tablets. Before you proceed, please confirm that you take part via Desktop PC or Laptop.", 
+      name: 'DesktopConf', 
+      options: ['1: I confirm', '2: I do not confirm'], 
+      required: answ_required
+    }, 
+    {
+      prompt: "For the scientific utility of the results, it is very important that you provide complete and careful responses. How seriously will you take your participation in the study?", 
+      name: 'AttentConf', 
+      options: ['1: I will take it seriously', '2: I will not take it seriously'], 
+      required: answ_required
+    }, 
+  ],
+  on_finish: function(data){
+            if(condition == 1){ 
+              machine_type = "functional";
+              machine_pics = ["img/machine_components.png", "img/wheel.png", "img/cutter.png", "img/crossbow.png", "img/balloon.png"]
+            }else if(condition == 2){
+              machine_type = "separate_parts";
+              machine_pics = ["img/machine_components_sep.png", "img/wheel_sep.png", "img/cutter_sep.png", "img/crossbow_sep.png", "img/balloon_sep.png"]
+            };
+    	  jsPsych.data.addProperties({desktop_conf: data.response.DesktopConf, attent_conf: data.response.AttentConf, 
+          machine_type: machine_type
+        });
+  },
+  preamble: `
+              <p><img src="img/uni_org_color_li.png" width = 100%></img></p>
+              <p><b>Welcome to this experiment and thank you very much for your participation.</b></p>
+              <p>Please note: This study contains memory checks with which we aim to ensure that you correctly understood the central aspects of the study.</p>
+            `
+};
+timeline.push(confs);
+
+
+
+///////////////////////// scenario 
+var machine_description = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: function () {
+      return `
+        <p>Below you see a picture. Some parts are covered by blue rectangles, which means you can't see them.</p>
+              
+              <p><img src=`+machine_pics[0]+` width = 100%></img></p>
+              
+              <p>The different boxes show two alternative components for each masked part. Only one component of each pair belongs to the covered parts. 
+                Your task is to figure out which of these two components that is, and we will also ask you to tell what it is about a component that makes it more suitable than the other. We will go through all the pairs one by one.</p>
+
+              <p><i>If you've studied the given information and feel ready to begin, please click "Continue" to proceed.</i></p>
+              `;
+    },
+    choices: ['Continue']
+}
+timeline.push(machine_description);
+
+
+
+var wheel = {
+  type: jsPsychSurveyHtmlForm,
+  name: 'test_wheel',
+  preamble: function(){return `
+              <p>Below you see the picture again. You can see two possible components for the part we're now interested in (highlited in green).</p>
+              
+              <p><img src=`+machine_pics[1]+` width = 100%></img></p>
+              `;
+  },
+  html: function() {
+    return `
+      <style>
+        .left-align-container {
+          text-align: left;
+        }
+      </style>
+
+      <div class="left-align-container">
+        <p><b>Which component is more suitable for this part?</b></p>
+        <input type="radio" id="option_A" name="wheel_choice" value="mouse" required>
+        <label for="option_A">mouse</label><br>
+        <input type="radio" id="option_B" name="wheel_choice" value="wheel reflector" required>
+        <label for="option_B">wheel reflector</label>
+      </div>
+
+      <hr>
+
+      <div>
+        <p><b>Please explain what properties of the component you chose make it more suitable than the other.</b>
+        <i>Please use the text field below to write your explanations</i><p>
+        <textarea name="wheel_explanation" rows="20" cols="120" required></textarea>
+      </div>
+    `;
+  },
+  on_load: function() {
+    window.scrollTo(0, 0);
+  },
+  on_finish: function(data) {
+    // 1. Get the full-text selections from the form response
+    const wheel_selection_text = data.response.wheel_choice;
+    const wheel_explanation = data.response.wheel_explanation;
+
+    // 2. Map the full-text selections to the desired 'A'/'B' codes
+
+    let comp_A_selection_code;
+    if (wheel_selection_text === 'mouse') {
+      comp_wheel_selection_code = "correct";
+    } else if (wheel_selection_text === 'wheel reflector') {
+      comp_wheel_selection_code = "incorrect";
+    }
+   
+    // 3. Add the new data columns to the JsPsych data object
+    jsPsych.data.addProperties({
+      sel_comp_wheel: comp_wheel_selection_code, // New column name and coded value
+      expl_wheel: wheel_explanation
+    });
+  }
+};
+
+
+
+var cutter = {
+  type: jsPsychSurveyHtmlForm,
+  name: 'test_cutter',
+  preamble: function(){return `
+              <p>Below you see the picture again. You can see two possible components for the part we're now interested in (highlited in green).</p>
+              
+              <p><img src=`+machine_pics[2]+` width = 100%></img></p>
+              `;
+  },
+  html: function() {
+    return `
+      <style>
+        .left-align-container {
+          text-align: left;
+        }
+      </style>
+
+      <div class="left-align-container">
+        <p><b>Which component is more suitable for this part?</b></p>
+        <input type="radio" id="option_A" name="cutter_choice" value="whisk" required>
+        <label for="option_A">whisk</label><br>
+        <input type="radio" id="option_B" name="cutter_choice" value="knife" required>
+        <label for="option_B">knife</label>
+      </div>
+
+      <hr>
+
+      <div>
+        <p><b>Please explain what properties of the component you chose make it more suitable than the other.</b>
+        <i>Please use the text field below to write your explanations</i><p>
+        <textarea name="cutter_explanation" rows="20" cols="120" required></textarea>
+      </div>
+    `;
+  },
+  on_load: function() {
+    window.scrollTo(0, 0);
+  },
+  on_finish: function(data) {
+    // 1. Get the full-text selections from the form response
+    const cutter_selection_text = data.response.cutter_choice;
+    const cutter_explanation = data.response.cutter_explanation;
+
+    // 2. Map the full-text selections to the desired 'A'/'B' codes
+
+    let comp_A_selection_code;
+    if (cutter_selection_text === 'whisk') {
+      comp_cutter_selection_code = "incorrect";
+    } else if (cutter_selection_text === 'knife') {
+      comp_cutter_selection_code = "correct";
+    }
+   
+    // 3. Add the new data columns to the JsPsych data object
+    jsPsych.data.addProperties({
+      sel_comp_cutter: comp_cutter_selection_code, // New column name and coded value
+      expl_cutter: cutter_explanation
+    });
+  }
+};
+
+
+var crossbow = {
+  type: jsPsychSurveyHtmlForm,
+  name: 'test_crossbow',
+  preamble: function(){return `
+              <p>Below you see the picture again. You can see two possible components for the part we're now interested in (highlited in green).</p>
+              
+              <p><img src=`+machine_pics[3]+` width = 100%></img></p>
+              `;
+  },
+  html: function() {
+    return `
+      <style>
+        .left-align-container {
+          text-align: left;
+        }
+      </style>
+
+      <div class="left-align-container">
+        <p><b>Which component is more suitable for this part?</b></p>
+        <input type="radio" id="option_A" name="crossbow_choice" value="suction cup" required>
+        <label for="option_A">suction cup</label><br>
+        <input type="radio" id="option_B" name="crossbow_choice" value="star" required>
+        <label for="option_B">star</label>
+      </div>
+
+      <hr>
+
+      <div>
+        <p><b>Please explain what properties of the component you chose make it more suitable than the other.</b>
+        <i>Please use the text field below to write your explanations</i><p>
+        <textarea name="crossbow_explanation" rows="20" cols="120" required></textarea>
+      </div>
+    `;
+  },
+  on_load: function() {
+    window.scrollTo(0, 0);
+  },
+  on_finish: function(data) {
+    // 1. Get the full-text selections from the form response
+    const crossbow_selection_text = data.response.crossbow_choice;
+    const crossbow_explanation = data.response.crossbow_explanation;
+
+    // 2. Map the full-text selections to the desired 'A'/'B' codes
+
+    let comp_A_selection_code;
+    if (crossbow_selection_text === 'suction cup') {
+      comp_crossbow_selection_code = "incorrect";
+    } else if (crossbow_selection_text === 'star') {
+      comp_crossbow_selection_code = "correct";
+    }
+   
+    // 3. Add the new data columns to the JsPsych data object
+    jsPsych.data.addProperties({
+      sel_comp_crossbow: comp_crossbow_selection_code, // New column name and coded value
+      expl_crossbow: crossbow_explanation
+    });
+  }
+};
+
+
+
+
+var balloon = {
+  type: jsPsychSurveyHtmlForm,
+  name: 'test_balloon',
+  preamble: function(){return `
+              <p>Below you see the picture again. You can see two possible components for the part we're now interested in (highlited in green).</p>
+              
+              <p><img src=`+machine_pics[4]+` width = 100%></img></p>
+              `;
+  },
+  html: function() {
+    return `
+      <style>
+        .left-align-container {
+          text-align: left;
+        }
+      </style>
+
+      <div class="left-align-container">
+        <p><b>Which component is more suitable for this part?</b></p>
+        <input type="radio" id="option_A" name="balloon_choice" value="weight" required>
+        <label for="option_A">weight</label><br>
+        <input type="radio" id="option_B" name="balloon_choice" value="kid" required>
+        <label for="option_B">kid</label>
+      </div>
+
+      <hr>
+
+      <div>
+        <p><b>Please explain what properties of the component you chose make it more suitable than the other.</b>
+        <i>Please use the text field below to write your explanations</i><p>
+        <textarea name="balloon_explanation" rows="20" cols="120" required></textarea>
+      </div>
+    `;
+  },
+  on_load: function() {
+    window.scrollTo(0, 0);
+  },
+  on_finish: function(data) {
+    // 1. Get the full-text selections from the form response
+    const balloon_selection_text = data.response.balloon_choice;
+    const balloon_explanation = data.response.balloon_explanation;
+
+    // 2. Map the full-text selections to the desired 'A'/'B' codes
+
+    let comp_A_selection_code;
+    if (balloon_selection_text === 'weight') {
+      comp_balloon_selection_code = "correct";
+    } else if (balloon_selection_text === 'kid') {
+      comp_balloon_selection_code = "incorrect";
+    }
+   
+    // 3. Add the new data columns to the JsPsych data object
+    jsPsych.data.addProperties({
+      sel_comp_balloon: comp_balloon_selection_code, // New column name and coded value
+      expl_balloon: balloon_explanation
+    });
+  }
+};
+
+
+test_screens = jsPsych.randomization.repeat([wheel, cutter, crossbow, balloon], 1);
+
+timeline.push(test_screens[0], test_screens[1], test_screens[2], test_screens[3]);
+
+
+
+
+//////////////////
+
+
+//////////////////
+/* instr 2 */ 
+var mem_check = {
+  type: jsPsychSurveyMultiChoice,
+  name: 'mem_check',
+  questions: [
+    {
+      prompt: "Which of the following objects was <b>not</b> part of the drawing that you saw?", 
+      options: ['1: A balloon.', 
+                '2: A crossbow.',
+                '3: A toy car.'],
+      required: answ_required,
+      name: 'mem_check'
+    },
+  ],
+  preamble: function() {return `
+    <p>Thank you for your description. Before you finish the experiment, please answer the following memory check questions</p>
+    `
+  },
+  on_finish: function(data){
+    if(data.response.mem_check == '3: A toy car.'){
+      mem_check_correct = "correct"
+    }else{
+      mem_check_correct = "incorrect"
+    }
+	  jsPsych.data.addProperties({mem_check: data.response.mem_check, mem_check_correct: mem_check_correct});
+    console.log("mem check"+mem_check_correct)
+  },
+};
+timeline.push(mem_check);
+
+
+/////////////////////////////////////// demographics
+var demogr_age = {
+  type: jsPsychSurveyText,
+  name: 'Age_query',
+  questions: [
+    {prompt: 'How old are you?', 
+    placeholder: 'Age as a number', 
+    required: true,
+    name: 'Age'
+    },
+  ],
+  on_finish: function(data){
+	  jsPsych.data.addProperties({age: data.response.Age});
+  },
+}
+
+
+
+var demogr_gender = {
+  type: jsPsychSurveyMultiChoice,
+  name: 'gender_query',
+  questions: [
+    {
+      prompt: "Please indicate with which gender you identify.", 
+      options: ['1: male', '2: female', '3: non-binary', '4: prefer not to say'],
+      required: true,
+      name: 'Gender'
+    },
+  ],
+  on_finish: function(data){
+	  jsPsych.data.addProperties({gender: data.response.Gender});
+  },
+};
+timeline.push(demogr_age, demogr_gender);
+
+
+
+
+/////////////////////////////////////// technical issues
+var tech_issues = {
+  type: jsPsychSurveyText,
+  name: 'Tech_issue_query',
+  questions: [
+    {prompt: 'In the text field below you can report any errors that you came across during the study (e.g., technical issues, layout problems, spelling errors, errors in program logic and flow, etc.).', 
+    rows: 10, 
+    columns: 100, 
+    required: false,
+    name: 'Tech_issue_report'
+    },
+  ],
+  on_finish: function(data){
+	  jsPsych.data.addProperties({tech_issues: data.response.Tech_issue_report});
+	  console.log(data.response.Tech_issue_report)
+  },
+}
+timeline.push(tech_issues);
+
+///////////////////////////////////// debriefing
+
+var debriefing = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: 
+    `
+    <img src="img/uni_org_color_li.png" width = 100%></img>
+    <p><b>Thank you for taking part in this study!</b></p>
+  
+    <p>The aim of this experiment is to find out more about how people reason about causal mechanisms. 
+    If you are interested in further details or if you have any questions or comments concerning the experiment, 
+    feel free to contact me (XXXX) under <i>XXX@XXX</i>
+    
+    <p>To ensure you receive your reward, please click the button below to return to the Prolific website:</p>
+    `
+    ,
+    choices: ['Finish study']
+};
+timeline.push(debriefing);
+
+
+
+/////////////////////////////////////////////////////////////////
+/* start the experiment */
+    jsPsych.run(timeline);
+  
+  </script>
+</html>

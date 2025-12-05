@@ -1,0 +1,1621 @@
+---
+title: "Analysis"
+author: ""
+output:  
+  html_document:
+    number_sections: true
+    toc: true  
+    collapsed: false
+    toc_float: true
+    smooth_scroll: false
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+# packages
+library(ez)
+library(reshape2)
+library(reshape)
+library(ggplot2)
+library(plyr)
+library(pastecs)
+library(ez)
+library(data.table)
+library(tidyverse) 
+
+library(showtext)
+library(ggtext)
+library(readr)
+library(readxl)
+library(dplyr)
+
+font_add_google("Poppins", "Poppins")
+font_add_google("Roboto Mono", "Roboto Mono")
+showtext_auto()
+```
+
+
+# Load Data
+```{r}
+library(readr)
+exp_2_selection_data <- read_delim("exp_2_selection_data.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+
+# delete participatns who failed the mem_check_correct
+exp_2_selection_data <- exp_2_selection_data %>%
+  filter(mem_check_correct == "correct")
+
+
+tdata <- exp_2_selection_data 
+```
+
+```{r}
+mean(tdata$age)
+sd(tdata$age)
+min(tdata$age)
+max(tdata$age)
+```
+# Analysis of Choices 
+
+```{r}
+tdata <- tdata %>%
+  select(machine_type, sel_comp_cutter, sel_comp_wheel, sel_comp_balloon, sel_comp_crossbow)
+```
+
+
+
+Overall Performance (across trials):
+
+```{r}
+# Load the necessary library
+library(dplyr)
+library(tidyr)
+
+# NOTE: Replace the following line with the name of your actual R data frame
+# If your data is in a file, you'd use a command like:
+# tdata_choices <- read.csv("your_data_file.csv")
+
+# Assuming your data frame is named 'tdata_choices' (as per your prompt)
+
+transformed_data_with_percentages <- tdata %>%
+  # 1. Select only the necessary columns
+  select(machine_type, starts_with("sel_comp")) %>%
+  
+  # 2. Convert the data from wide to long format
+  pivot_longer(
+    cols = starts_with("sel_comp"), 
+    names_to = "trial",           
+    values_to = "choice"          
+  ) %>%
+  
+  # 3. Group by the experimental condition and the choice outcome
+  group_by(machine_type, choice) %>%
+  
+  # 4. Count the number of rows (choices) in each group
+  summarise(
+    total_count = n(),
+    .groups = "drop" # Temporarily remove grouping
+  ) %>%
+  
+  # 5. Regroup only by 'machine_type'
+  group_by(machine_type) %>%
+  
+  # 6. Calculate the percentage within each machine_type group
+  mutate(
+    percentage = (total_count / sum(total_count)) * 100
+  ) %>%
+  
+  # 7. Format the percentage to 2 decimal places (optional, but good practice)
+  mutate(
+    percentage = round(percentage, 2)
+  ) %>%
+  
+  # Remove final grouping
+  ungroup()
+
+choices_total <- transformed_data_with_percentages
+
+
+
+
+library(forcats)
+
+# Assuming your data frame is named 'choices_total'
+
+choices_total <- choices_total %>%
+  mutate(
+    # Convert machine_type to a factor and relabel its levels
+    machine_type = fct_recode(
+      factor(machine_type),
+      "functional" = "functional",      # Relabel "functional" to "machine"
+      "scrambled" = "separate_parts"  # Relabel "separate_parts" to "separate parts"
+    ), 
+    choice = fct_recode(
+      factor(choice),
+      "functional" = "correct",      # Relabel "functional" to "machine"
+      "dysfunctional" = "incorrect"  # Relabel "separate_parts" to "separate parts"
+    )
+  )
+
+
+
+# Add the CIs 
+
+
+# Load library
+library(binom)
+
+# Compute total counts per machine_type
+totals <- aggregate(total_count ~ machine_type, data = choices_total, sum)
+
+# Merge totals into main data
+choices_total <- merge(choices_total, totals, by = "machine_type", suffixes = c("", "_total"))
+
+# Compute proportions
+choices_total$prop <- choices_total$total_count / choices_total$total_count_total
+
+# Compute 95% Wilson confidence intervals
+ci <- binom.confint(
+  x = choices_total$total_count,
+  n = choices_total$total_count_total,
+  methods = "wilson"
+)
+
+# Add CI values to your dataframe
+choices_total$lower_CI <- ci$lower
+choices_total$upper_CI <- ci$upper
+
+# Convert proportions and CIs to percentages for readability
+choices_total$prop <- choices_total$prop * 100
+choices_total$lower_CI <- choices_total$lower_CI * 100
+choices_total$upper_CI <- choices_total$upper_CI * 100
+
+# Optional: round to 2 decimals
+choices_total$prop <- round(choices_total$prop, 2)
+choices_total$lower_CI <- round(choices_total$lower_CI, 2)
+choices_total$upper_CI <- round(choices_total$upper_CI, 2)
+
+
+# Filter such that only functional choices are shown
+choices_total_func <- choices_total %>%  filter(choice == "functional")
+```
+
+
+Graph
+
+```{r}
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Overall proportion of functional component selections"
+subtitle_text <- "per condition"
+caption_text <- "Note. Bars show proportions (95% CI error bars)."
+
+clusters_plot <- choices_total_func
+
+g3 <- ggplot(clusters_plot, aes(x = machine_type, y = percentage, fill = machine_type)) +
+  guides(fill=FALSE) +
+  #facet_wrap(~ machine_type, nrow = 1, strip.position = "top") +
+  scale_y_continuous(limits = c(-1, 101), breaks = seq(0, 100, 10), expand = c(0,0)) +
+  
+  # BAR layer
+  geom_bar(stat = "identity", alpha = 0.6, color = "black") +
+  
+  # ADD 95% CI ERROR BARS
+  geom_errorbar(aes(ymin = lower_CI, ymax = upper_CI), 
+                width = 0.2, 
+                size = 0.6, 
+                color = "black") +
+  
+  # LABELS on bars
+  geom_text(aes(label = paste0(round(percentage, 1), "%")), y = 5, family = body_font) +
+  
+  labs(
+    x = "Mechanism Configuration",
+    y = "Percentage",
+    title = title_text,
+    subtitle = subtitle_text,
+    caption = caption_text
+  ) +
+  
+  scale_color_manual(values = c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3")) +
+  scale_fill_manual(values = c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3")) +
+  
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(family = body_font, size = 12),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(family = body_font, size = 12),
+    strip.text.x = element_text(size = 12),
+    legend.position = "none",
+    legend.title = element_blank(),
+    legend.text = element_text(family = body_font, size = 13, color = "grey10"),
+    plot.title.position = "plot",
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40)
+  )
+
+g3
+
+# Save outputs
+ggsave("exp_clusters_total.svg", width = 8, height = 5)
+ggsave("exp_clusters_total.pdf", width = 8, height = 5)
+
+```
+
+
+
+Per-Trial Performance:
+
+```{r}
+# Load the necessary library
+library(dplyr)
+library(tidyr)
+
+# NOTE: Replace the following line with the name of your actual R data frame
+# tdata_choices <- read.csv("your_data_file.csv")
+
+# Assuming your data frame is named 'tdata_choices'
+
+transformed_trial_performance <- tdata %>%
+  # 1. Select only the necessary columns
+  select(machine_type, starts_with("sel_comp")) %>%
+  
+  # 2. Convert the data from wide to long format
+  pivot_longer(
+    cols = starts_with("sel_comp"), 
+    names_to = "trial",           # The new column containing trial names (e.g., 'sel_comp_cutter')
+    values_to = "choice"          # The new column containing the choice outcome ('correct'/'incorrect')
+  ) %>%
+  
+  # 3. Group by condition, trial, and choice
+  group_by(machine_type, trial, choice) %>%
+  
+  # 4. Count the total number of choices for this specific group
+  summarise(
+    total_count = n(),
+    .groups = "drop" # Temporarily remove grouping
+  ) %>%
+  
+  # 5. Regroup only by 'machine_type' and 'trial'
+  # This is the crucial step for calculating the percentage *within* each trial
+  group_by(machine_type, trial) %>%
+  
+  # 6. Calculate the percentage
+  mutate(
+    percentage = (total_count / sum(total_count)) * 100
+  ) %>%
+  
+  # 7. Format the percentage to 2 decimal places and remove final grouping
+  mutate(
+    percentage = round(percentage, 2)
+  ) %>%
+  ungroup()
+
+# Print the resulting transformed data frame
+print(transformed_trial_performance)
+
+choices_per_trial <- transformed_trial_performance
+
+
+
+
+library(forcats)
+
+# Assuming your data frame is named 'choices_total'
+
+choices_per_trial <- choices_per_trial %>%
+  mutate(
+    # Convert machine_type to a factor and relabel its levels
+    machine_type = fct_recode(
+      factor(machine_type),
+      "functional" = "functional",      # Relabel "functional" to "machine"
+      "scrambled" = "separate_parts"  # Relabel "separate_parts" to "separate parts"
+    ),
+    choice = fct_recode(
+      factor(choice),
+      "functional" = "correct",      # Relabel "functional" to "machine"
+      "dysfunctional" = "incorrect"  # Relabel "separate_parts" to "separate parts"
+    ), 
+    trial = fct_recode(
+      factor(trial),
+      "wheel" = "sel_comp_wheel",      
+      "balloon" = "sel_comp_balloon",  
+      "crossbow" = "sel_comp_crossbow",
+      "cutter" = "sel_comp_cutter"
+  ))
+
+# Add CIs 
+
+library(binom)
+
+# Compute total per machine_type and trial
+totals_trial <- aggregate(total_count ~ machine_type + trial, data = choices_per_trial, sum)
+
+# Merge totals into the main dataframe
+choices_per_trial <- merge(choices_per_trial, totals_trial,
+                           by = c("machine_type", "trial"),
+                           suffixes = c("", "_total"))
+
+# Compute proportions
+choices_per_trial$prop <- choices_per_trial$total_count / choices_per_trial$total_count_total
+
+# Compute 95% Wilson confidence intervals
+ci <- binom.confint(
+  x = choices_per_trial$total_count,
+  n = choices_per_trial$total_count_total,
+  methods = "wilson"
+)
+
+# Add CIs
+choices_per_trial$lower_CI <- ci$lower
+choices_per_trial$upper_CI <- ci$upper
+
+# Convert to percentages
+choices_per_trial$prop <- choices_per_trial$prop * 100
+choices_per_trial$lower_CI <- choices_per_trial$lower_CI * 100
+choices_per_trial$upper_CI <- choices_per_trial$upper_CI * 100
+
+# Round
+choices_per_trial$prop <- round(choices_per_trial$prop, 2)
+choices_per_trial$lower_CI <- round(choices_per_trial$lower_CI, 2)
+choices_per_trial$upper_CI <- round(choices_per_trial$upper_CI, 2)
+
+
+
+# Keep only functional choices
+choices_per_trial_func <- choices_per_trial %>%  filter(choice == "functional")
+
+choices_per_trial_func
+```
+
+
+Graph
+
+```{r}
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Proportion of functional component selections"
+subtitle_text <- "per trial and condition"
+caption_text <- "Note. Bars show proportions (95% CI error bars)."
+
+clusters_plot <- choices_per_trial_func
+
+g4 <- ggplot(clusters_plot, aes(x = machine_type, y = percentage, fill = machine_type)) +
+  guides(fill = FALSE) +
+  #facet_grid( ~ trial, switch = "x") +
+  # scale x discrete and use new labels 
+  scale_x_discrete(labels = c("functional" = "functional", 
+                              "scrambled" = "scrambled")) +
+  facet_grid( ~ trial) +
+  scale_y_continuous(limits = c(-1, 101), breaks = seq(0, 100, 10), expand = c(0,0)) +
+
+  # Bars
+  geom_bar(stat = "identity", alpha = 0.6, color = "black") +
+
+  # Add 95% CI error bars
+  geom_errorbar(aes(ymin = lower_CI, ymax = upper_CI),
+                width = 0.2,
+                size = 0.6,
+                color = "black") +
+
+  # Text labels
+  #geom_text(aes(label = paste0(round(percentage, 1), "%")), 
+   #        y = 5, 
+    #       family = body_font) +
+
+  labs(
+    x = "Mechanism Configuration",
+    y = "Percentage",
+    title = title_text,
+    subtitle = subtitle_text,
+    caption = caption_text
+  ) +
+  scale_color_manual(values = c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3")) +
+  scale_fill_manual(values = c("#367A5D", "#D19032", "#296398", "#984335", "#8E7CC3")) +
+
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(family = body_font, size = 8),
+    axis.text.y = element_text(family = body_font, size = 12),
+    strip.text.x = element_text(size = 12, face = "bold"),
+    strip.text.y = element_text(size = 12),
+    legend.position = "none",
+    legend.title = element_blank(),
+    plot.title.position = "plot",
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40)
+  )
+
+g4
+
+# Save outputs
+ggsave("exp_clusters_per_trial.svg", width = 10, height = 4)
+ggsave("exp_clusters_per_trial.pdf", width = 10, height = 4)
+
+```
+
+
+
+Put graphs together
+
+
+```{r}
+library(patchwork)
+
+# --- Refined top plot (A: per condition) ---
+g3_refined <- g3 +
+  labs(title = NULL, subtitle = NULL, caption = NULL) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)) +
+  theme(
+    axis.text.x = element_text(family = body_font, size = 11),
+    axis.text.y = element_text(family = body_font, size = 11),
+    strip.text.x = element_text(size = 11, face = "bold"),
+    plot.margin = margin(10, 150, 10, 150)
+  )
+
+# --- Refined bottom plot (B: per trial and condition) ---
+g4_refined <- g4 +
+  labs(title = NULL, subtitle = NULL, caption = NULL) +
+  geom_text(
+    aes(label = paste0(round(percentage, 1), "%")),
+    y = 3,
+    family = body_font,
+    size = 3
+  ) +
+  scale_y_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, 20),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  theme(
+    axis.text.x = element_text(family = body_font, size = 10),
+    axis.text.y = element_text(family = body_font, size = 10),
+    strip.text.x = element_text(size = 10, face = "bold"),
+    strip.text.y = element_text(size = 10),
+    plot.margin = margin(10, 30, 10, 30),
+    panel.spacing = unit(1, "lines"),
+    plot.background = element_rect(fill = "white", color = "white"),
+    clip = "off"
+  )
+
+# --- Combine clean plots (no global title/subtitle, keep A/B tags + Note) ---
+combined_plot_APA_clean <- (
+  g3_refined + g4_refined
+) +
+  plot_layout(ncol = 1, heights = c(1, 1.1)) +
+  plot_annotation(
+    tag_levels = "A",  # keeps A and B
+    #caption = "Note. Bars show mean percentages with 95% Wilson confidence intervals.",
+    theme = theme(
+      plot.caption = element_text(family = body_font, size = 10, hjust = 0, margin = margin(t = 8)),
+      plot.tag = element_text(family = title_font, face = "bold", size = 14),
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+  )
+
+# Display final version
+combined_plot_APA_clean
+
+
+
+
+library(patchwork)
+
+# Narrow and center top plot
+g3_narrow <- g3_refined +
+  theme(
+    plot.margin = margin(10, 150, 10, 150)  # increase side margins to shrink visual width
+  )
+
+combined_plot_APA_balanced <- (
+  wrap_elements(full = g3_narrow) / g4_refined
+) +
+  plot_layout(heights = c(1, 1)) +
+  plot_annotation(
+    tag_levels = "A",
+    theme = theme(
+      plot.tag = element_text(family = title_font, face = "bold", size = 14),
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+  )
+
+combined_plot_APA_balanced
+
+
+
+
+
+# Save APA-ready outputs
+ggsave("combined_choices_APA_clean.pdf", combined_plot_APA_balanced, width = 9, height = 8)
+ggsave("combined_choices_APA_clean.svg", combined_plot_APA_balanced, width = 9, height = 8)
+ggsave("combined_choices_APA_clean.png", combined_plot_APA_balanced, width = 9, height = 8, dpi = 300)
+
+```
+
+
+
+
+# Analysis
+
+
+
+```{r}
+
+# Vector 1: Correct choices (successes) for each machine_type
+correct_counts <- choices_total %>%
+  filter(choice == "functional") %>%
+  arrange(machine_type) %>% # Ensures correct order: machine, separate parts
+  pull(total_count)
+
+# Vector 2: Total trials (n) for each machine_type
+total_trials <- choices_total %>%
+  group_by(machine_type) %>%
+  summarise(
+    total_trials = sum(total_count),
+    .groups = "drop"
+  ) %>%
+  arrange(machine_type) %>% # Ensures correct order: machine, separate parts
+  pull(total_trials)
+
+
+# 3. Perform the one-tailed proportion test
+# H1: Proportion of correct choices in 'machine' is GREATER THAN 'separate parts'.
+test_result <- prop.test(
+    x = correct_counts,
+    n = total_trials,
+    alternative = "greater", # One-tailed test
+    correct = TRUE           # Apply Yates' continuity correction
+)
+
+# Print the result
+print(test_result)
+```
+
+```{r}
+
+library(pwr)
+
+# 2. Define the proportions (p1 = machine, p2 = separate parts)
+p1 <- correct_counts[1] / total_trials[1] # 39/56 = 0.6964
+p2 <- correct_counts[2] / total_trials[2] # 15/44 = 0.3409
+
+# 3. Calculate Cohen's h effect size
+h <- ES.h(p1 = p1, p2 = p2)
+
+# Print the result
+cat("Proportion 1 (Machine):", p1, "\n")
+cat("Proportion 2 (Scrambled):", p2, "\n")
+cat("Cohen's h Effect Size:", h, "\n")
+```
+
+# Analysis of Explanations
+
+
+```{r}
+library(readr)
+tdata <- read_delim("exp_2_explanation_parsings.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+
+```{r}
+library(dplyr)
+
+# Group the data by 'machine_type' and calculate the mean for each length column
+comparison_results <- tdata %>%
+  group_by(machine) %>%
+  summarise(
+    avg_cutter = mean(`cutter_mention`, na.rm = TRUE),
+    avg_crossbow = mean(`balloon_mention`, na.rm =TRUE),
+    avg_balloon = mean(`crossbow_mention`, na.rm = TRUE),
+    avg_wheel = mean(`wheel_mention`, na.rm = TRUE)
+    
+  )
+
+# Print the results
+print(comparison_results)
+```
+
+```{r}
+tdata_explan_categories <- tdata %>%
+  select(machine, `cutter_mention`, `balloon_mention`, `crossbow_mention`, `wheel_mention`)
+
+
+# change the col names of the data frame 
+colnames(tdata_explan_categories) <- c("machine_type", "cutter_mention", "balloon_mention", "crossbow_mention", "wheel_mention")
+```
+
+```{r}
+# Load the necessary libraries
+library(dplyr)
+library(tidyr)
+
+# Assuming your data frame is named 'df'
+# If you are reading the data from a file, use:
+# df <- read.csv("your_file_name.csv")
+
+explans_total <- tdata_explan_categories %>%
+  # 1. Reshape the data from wide to long format
+  # This creates one row for every single choice (0 or 1) in your data
+  pivot_longer(
+    cols = ends_with("mention"), # Selects all columns ending in "mention"
+    names_to = "item",           # New column for the item name (e.g., cutter_mention_4)
+    values_to = "outcome"        # New column for the choice value (0 or 1)
+  ) %>%
+  
+  # 2. Group by the condition and the outcome (0 or 1)
+  group_by(machine_type, outcome) %>%
+  
+  # 3. Calculate the total count for each combination
+  summarise(
+    Count = n(),
+    .groups = 'drop_last' # Keep the grouping by machine_type for the next step
+  ) %>%
+  
+  # 4. Calculate the percentage within each condition group
+  mutate(
+    Total_Observations = sum(Count), # Calculate the total number of choices (0s + 1s) per condition
+    Percentage = (Count / Total_Observations) * 100
+  ) %>%
+  
+  # 5. Finalize and rename columns for clarity
+  ungroup() %>%
+  mutate(
+    # Convert the 0/1 outcome to a descriptive label
+    Explan_category = ifelse(outcome == 1, "disp. expl.", "ndisp. expl.")
+  ) %>%
+  select(
+    machine_type = machine_type,
+    Explan_category,
+    Total_Count = Count,
+    Percentage
+  )
+
+
+library(forcats)
+
+# Assuming your data frame is named 'choices_total'
+
+explans_total <- explans_total %>%
+  mutate(
+    # Convert machine_type to a factor and relabel its levels
+    machine_type = fct_recode(
+      factor(machine_type),
+      "functional" = "functional",      # Relabel "functional" to "machine"
+      "scrambled" = "scrambled"  # Relabel "separate_parts" to "separate parts"
+    )
+  )
+
+# Add 95% Wilson confidence intervals
+library(binom)
+
+# Compute total per machine_type
+totals <- aggregate(Total_Count ~ machine_type, data = explans_total, sum)
+
+# Merge totals into the main dataframe
+explans_total <- merge(explans_total, totals, by = "machine_type", suffixes = c("", "_total"))
+
+# Compute proportions
+explans_total$prop <- explans_total$Total_Count / explans_total$Total_Count_total
+
+# Compute 95% Wilson confidence intervals
+ci <- binom.confint(
+  x = explans_total$Total_Count,
+  n = explans_total$Total_Count_total,
+  methods = "wilson"
+)
+
+# Add CI columns
+explans_total$lower_CI <- ci$lower
+explans_total$upper_CI <- ci$upper
+
+# Convert to percentages
+explans_total$prop <- explans_total$prop * 100
+explans_total$lower_CI <- explans_total$lower_CI * 100
+explans_total$upper_CI <- explans_total$upper_CI * 100
+
+# Round for clarity
+explans_total$prop <- round(explans_total$prop, 2)
+explans_total$lower_CI <- round(explans_total$lower_CI, 2)
+explans_total$upper_CI <- round(explans_total$upper_CI, 2)
+
+# View results
+explans_total
+
+# keep only the disp.expl. cases 
+explans_total_disp <- explans_total %>% filter(Explan_category == "disp. expl.")
+explans_total_disp
+```
+
+
+
+
+
+```{r}
+# Load the necessary libraries
+library(dplyr)
+library(tidyr)
+
+# Assuming your data frame is named 'df'
+
+explans_per_trial <- tdata_explan_categories %>%
+  # 1. Reshape the data from wide to long format
+  pivot_longer(
+    cols = ends_with("mention"), # Selects all columns ending in "mention"
+    names_to = "trial",          # New column for the trial name (e.g., cutter_mention_4)
+    values_to = "outcome"       # New column for the choice value (0 or 1)
+  ) %>%
+
+  # 2. Group by the condition, the specific trial, and the outcome (0 or 1)
+  group_by(machine_type, trial, outcome) %>%
+
+  # 3. Calculate the total count for each unique combination
+  summarise(
+    Count = n(),
+    .groups = 'drop_last' # Keep the grouping by machine_type and trial for the next step
+  ) %>%
+
+  # 4. Calculate the percentage within each Trial/Condition group
+  mutate(
+    # Total_Observations for this trial within this condition is the sum of (0s + 1s)
+    Total_Observations = sum(Count),
+    Percentage = (Count / Total_Observations) * 100
+  ) %>%
+
+  # 5. Finalize and clean up columns
+  ungroup() %>%
+  mutate(
+    # Convert the 0/1 outcome to a descriptive label
+    Outcome_Type = ifelse(outcome == 1, "disp. expl.", "ndisp. expl.")
+  ) %>%
+  select(
+    machine_type = machine_type,
+    trial,
+    Outcome_Type,
+    Total_Count = Count,
+    Percentage
+  )
+
+# Add 95% Wilson confidence intervals
+
+library(binom)
+
+# Compute total counts per machine_type and trial
+totals_trial <- aggregate(Total_Count ~ machine_type + trial, data = explans_per_trial, sum)
+
+
+
+# Merge totals back into the main dataframe
+explans_per_trial <- merge(explans_per_trial, totals_trial,
+                           by = c("machine_type", "trial"),
+                           suffixes = c("", "_total"))
+
+
+# Compute proportion
+explans_per_trial$prop <- explans_per_trial$Total_Count / explans_per_trial$Total_Count_total
+
+# Compute 95% Wilson confidence intervals
+ci <- binom.confint(
+  x = explans_per_trial$Total_Count,
+  n = explans_per_trial$Total_Count_total,
+  methods = "wilson"
+)
+
+# Add CI columns
+explans_per_trial$lower_CI <- ci$lower
+explans_per_trial$upper_CI <- ci$upper
+
+# Convert to percentages
+explans_per_trial$prop <- explans_per_trial$prop * 100
+explans_per_trial$lower_CI <- explans_per_trial$lower_CI * 100
+explans_per_trial$upper_CI <- explans_per_trial$upper_CI * 100
+
+# Round for neatness
+explans_per_trial$prop <- round(explans_per_trial$prop, 2)
+explans_per_trial$lower_CI <- round(explans_per_trial$lower_CI, 2)
+explans_per_trial$upper_CI <- round(explans_per_trial$upper_CI, 2)
+
+# View the updated dataframe
+explans_per_trial
+
+
+
+
+
+library(forcats)
+
+# Assuming your data frame is named 'choices_total'
+
+explans_per_trial <- explans_per_trial %>%
+  mutate(
+    # Convert machine_type to a factor and relabel its levels
+    machine_type = fct_recode(
+      factor(machine_type),
+      "functional" = "functional",      # Relabel "functional" to "machine"
+      "scrambled" = "scrambled"  # Relabel "separate_parts" to "separate parts"
+    ), 
+    trial = fct_recode(
+      factor(trial),
+      "wheel" = "wheel_mention",      
+      "balloon" = "balloon_mention",  
+      "crossbow" = "crossbow_mention",
+      "cutter" = "cutter_mention"
+  ))
+
+
+# keep only the disp.expl. cases
+explans_per_trial_disp <- explans_per_trial %>% filter(Outcome_Type == "disp. expl.")
+explans_per_trial_disp
+```
+
+Graphs: 
+
+Overall 
+```{r}
+library(ggplot2)
+library(showtext)
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Proportion of Explanation Types"
+caption_text <- "Note. Bars show mean percentages with 95% Wilson confidence intervals."
+
+explans_total_plot <- ggplot(explans_total_disp, aes(x = machine_type, y = Percentage, fill = machine_type)) +
+  guides(fill = FALSE) +
+  #facet_wrap(~ machine_type, nrow = 1, strip.position = "top") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20), expand = c(0, 0.05)) +
+  # scale x discrete and add new lables 
+  scale_x_discrete(labels = c("functional" = "functional", 
+                              "scrambled" = "scrambled")) +
+  # Bars
+  geom_bar(stat = "identity", alpha = 0.6, color = "black") +
+  
+  # 95% CI error bars
+  geom_errorbar(aes(ymin = lower_CI, ymax = upper_CI), width = 0.25, size = 0.6, color = "black") +
+  
+  # Percentage labels near the base of bars
+  geom_text(aes(y = 5, label = paste0(round(Percentage, 1), "%")), 
+            family = body_font, size = 3, color = "black") +
+  
+  # Labels and theme
+  labs(
+    x = "Mechanism Configuration",
+    y = "Percentage"
+  ) +
+  scale_fill_manual(values = c("#367A5D", "#D19032")) +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(family = body_font, size = 12),
+    axis.title.y = element_text(family = body_font, size = 12),
+    axis.text.x = element_text(family = body_font, size = 10),
+    axis.text.y = element_text(family = body_font, size = 10),
+    strip.text.x = element_text(size = 10, face = "bold"),
+    panel.spacing = unit(1, "lines"),
+    plot.margin = margin(10, 30, 10, 30),
+    legend.position = "none",
+    plot.background = element_rect(fill = "white", color = "white")
+  )
+explans_total_plot
+```
+
+Trial-wise 
+
+```{r}
+explans_per_trial_plot <- ggplot(explans_per_trial_disp, aes(x = machine_type, y = Percentage, fill = machine_type)) +
+  guides(fill = FALSE) +
+  facet_grid( ~ trial) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20), expand = c(0, 0.05)) +
+  
+  # Bars
+  geom_bar(stat = "identity", alpha = 0.6, color = "black") +
+  
+  # 95% CI error bars
+  geom_errorbar(aes(ymin = lower_CI, ymax = upper_CI), width = 0.25, size = 0.6, color = "black") +
+  scale_x_discrete(labels = c("functional" = "functional", 
+                              "scrambled" = "scrambled")) +
+
+  
+  labs(
+    x = "Mechanism Confguration",
+    y = "Percentage"
+  ) +
+  scale_fill_manual(values = c("#367A5D", "#D19032")) +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(family = body_font, size = 12),
+    axis.title.y = element_text(family = body_font, size = 12),
+    axis.text.x = element_text(family = body_font, size = 10),
+    axis.text.y = element_text(family = body_font, size = 10),
+    strip.text.x = element_text(family = body_font, size = 10, face = "bold"),
+    strip.text.y = element_text(family = body_font, size = 10),
+    panel.spacing = unit(1, "lines"),
+    plot.margin = margin(10, 30, 10, 30),
+    legend.position = "none",
+    plot.background = element_rect(fill = "white", color = "white"),
+    clip = "off"
+  )
+explans_per_trial_plot
+```
+
+Combined
+
+
+
+
+```{r}
+library(patchwork)
+
+# --- Refined top plot (A: per condition) ---
+g3_refined <- explans_total_plot +
+  labs(title = NULL, subtitle = NULL, caption = NULL) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)) +
+  scale_x_discrete(labels = c("functional" = "functional", 
+                              "scrambled" = "scrambled")) +
+  theme(
+    axis.text.x = element_text(family = body_font, size = 11),
+    axis.text.y = element_text(family = body_font, size = 11),
+    strip.text.x = element_text(size = 11, face = "bold"),
+    plot.margin = margin(10, 150, 10, 150)
+  )
+
+# --- Refined bottom plot (B: per trial and condition) ---
+g4_refined <- explans_per_trial_plot +
+  labs(title = NULL, subtitle = NULL, caption = NULL) +
+  geom_text(
+    aes(label = paste0(round(Percentage, 1), "%")),
+    y = 3,
+    family = body_font,
+    size = 3
+  ) +
+  scale_y_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, 20),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  scale_x_discrete(labels = c("functional" = "functional", 
+                              "scrambled" = "scrambled")) +
+  theme(
+    axis.text.x = element_text(family = body_font, size = 10),
+    axis.text.y = element_text(family = body_font, size = 10),
+    strip.text.x = element_text(size = 10, face = "bold"),
+    strip.text.y = element_text(size = 10),
+    plot.margin = margin(10, 30, 10, 30),
+    panel.spacing = unit(1, "lines"),
+    plot.background = element_rect(fill = "white", color = "white"),
+    clip = "off"
+  )
+
+# --- Combine clean plots (no global title/subtitle, keep A/B tags + Note) ---
+combined_plot_APA_clean <- (
+  g3_refined + g4_refined
+) + 
+  plot_layout(ncol = 1, heights = c(1, 1.1)) +
+  plot_annotation(
+    tag_levels = "A",  # keeps A and B
+    #caption = "Note. Bars show mean percentages with 95% Wilson confidence intervals.",
+    theme = theme(
+      plot.caption = element_text(family = body_font, size = 10, hjust = 0, margin = margin(t = 8)),
+      plot.tag = element_text(family = title_font, face = "bold", size = 14),
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+  )
+
+# Display final version
+combined_plot_APA_clean
+
+
+
+
+library(patchwork)
+
+# Narrow and center top plot
+g3_narrow <- g3_refined +
+  theme(
+    plot.margin = margin(10, 150, 10, 150)  # increase side margins to shrink visual width
+  )
+
+combined_plot_APA_balanced <- (
+  wrap_elements(full = g3_narrow) / g4_refined
+) +
+  plot_layout(heights = c(1, 1)) +
+  plot_annotation(
+    tag_levels = "A",
+    theme = theme(
+      plot.tag = element_text(family = title_font, face = "bold", size = 14),
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+  )
+
+combined_plot_APA_balanced
+
+
+
+
+
+# Save APA-ready outputs
+ggsave("combined_explans_APA_clean.pdf", combined_plot_APA_balanced, width = 9, height = 8)
+ggsave("combined_explans_APA_clean.svg", combined_plot_APA_balanced, width = 9, height = 8)
+ggsave("combined_explans_APA_clean.png", combined_plot_APA_balanced, width = 9, height = 8, dpi = 300)
+
+```
+
+
+# Analyses
+
+
+```{r}
+
+# Vector 1: Correct choices (successes) for each machine_type
+disp_counts <- explans_total %>%
+  filter(Explan_category == "disp. expl.") %>%
+  arrange(machine_type) %>% # Ensures correct order: machine, separate parts
+  pull(Total_Count)
+
+# Vector 2: Total trials (n) for each machine_type
+total_trials <- explans_total %>%
+  group_by(machine_type) %>%
+  summarise(
+    total_trials = sum(Total_Count),
+    .groups = "drop"
+  ) %>%
+  arrange(machine_type) %>% # Ensures correct order: machine, separate parts
+  pull(total_trials)
+
+
+# 3. Perform the one-tailed proportion test
+# H1: Proportion of correct choices in 'machine' is GREATER THAN 'separate parts'.
+test_result <- prop.test(
+    x = disp_counts,
+    n = total_trials,
+    alternative = "greater", # One-tailed test
+    correct = TRUE           # Apply Yates' continuity correction
+)
+
+# Print the result
+print(test_result)
+```
+
+```{r}
+
+library(pwr)
+
+# 2. Define the proportions (p1 = machine, p2 = separate parts)
+p1 <- disp_counts[1] / total_trials[1] # 39/56 = 0.6964
+p2 <- disp_counts[2] / total_trials[2] # 15/44 = 0.3409
+
+# 3. Calculate Cohen's h effect size
+h <- ES.h(p1 = p1, p2 = p2)
+
+# Print the result
+cat("Proportion 1 (Machine):", p1, "\n")
+cat("Proportion 2 (Separate Parts):", p2, "\n")
+cat("Cohen's h Effect Size:", h, "\n")
+```
+
+
+
+
+# same with the more conservative GPT coding 
+
+
+
+```{r}
+library(dplyr)
+
+# Group the data by 'machine_type' and calculate the mean for each length column
+comparison_results <- tdata %>%
+  group_by(machine) %>%
+  summarise(
+    avg_cutter = mean(`cutter_mention 4`, na.rm = TRUE),
+    avg_crossbow = mean(`balloon_mention 7`, na.rm =TRUE),
+    avg_balloon = mean(`crossbow_mention 10`, na.rm = TRUE),
+    avg_wheel = mean(`wheel_mention 13`, na.rm = TRUE)
+    
+  )
+
+# Print the results
+print(comparison_results)
+```
+
+```{r}
+tdata_explan_categories <- tdata %>%
+  select(machine, `cutter_mention 4`, `balloon_mention 7`, `crossbow_mention 10`, `wheel_mention 13`)
+
+
+# change the col names of the data frame 
+colnames(tdata_explan_categories) <- c("machine_type", "cutter_mention", "balloon_mention", "crossbow_mention", "wheel_mention")
+```
+
+
+```{r}
+# Load the necessary libraries
+library(dplyr)
+library(tidyr)
+
+# Assuming your data frame is named 'df'
+# If you are reading the data from a file, use:
+# df <- read.csv("your_file_name.csv")
+
+explans_total <- tdata_explan_categories %>%
+  # 1. Reshape the data from wide to long format
+  # This creates one row for every single choice (0 or 1) in your data
+  pivot_longer(
+    cols = ends_with("mention"), # Selects all columns ending in "mention"
+    names_to = "item",           # New column for the item name (e.g., cutter_mention_4)
+    values_to = "outcome"        # New column for the choice value (0 or 1)
+  ) %>%
+  
+  # 2. Group by the condition and the outcome (0 or 1)
+  group_by(machine_type, outcome) %>%
+  
+  # 3. Calculate the total count for each combination
+  summarise(
+    Count = n(),
+    .groups = 'drop_last' # Keep the grouping by machine_type for the next step
+  ) %>%
+  
+  # 4. Calculate the percentage within each condition group
+  mutate(
+    Total_Observations = sum(Count), # Calculate the total number of choices (0s + 1s) per condition
+    Percentage = (Count / Total_Observations) * 100
+  ) %>%
+  
+  # 5. Finalize and rename columns for clarity
+  ungroup() %>%
+  mutate(
+    # Convert the 0/1 outcome to a descriptive label
+    Explan_category = ifelse(outcome == 1, "disp. expl.", "ndisp. expl.")
+  ) %>%
+  select(
+    machine_type = machine_type,
+    Explan_category,
+    Total_Count = Count,
+    Percentage
+  )
+
+
+library(forcats)
+
+# Assuming your data frame is named 'choices_total'
+
+explans_total <- explans_total %>%
+  mutate(
+    # Convert machine_type to a factor and relabel its levels
+    machine_type = fct_recode(
+      factor(machine_type),
+      "functional" = "functional",      # Relabel "functional" to "machine"
+      "scrambled" = "scrambled"  # Relabel "separate_parts" to "separate parts"
+    )
+  )
+
+# Add 95% Wilson confidence intervals
+library(binom)
+
+# Compute total per machine_type
+totals <- aggregate(Total_Count ~ machine_type, data = explans_total, sum)
+
+# Merge totals into the main dataframe
+explans_total <- merge(explans_total, totals, by = "machine_type", suffixes = c("", "_total"))
+
+# Compute proportions
+explans_total$prop <- explans_total$Total_Count / explans_total$Total_Count_total
+
+# Compute 95% Wilson confidence intervals
+ci <- binom.confint(
+  x = explans_total$Total_Count,
+  n = explans_total$Total_Count_total,
+  methods = "wilson"
+)
+
+# Add CI columns
+explans_total$lower_CI <- ci$lower
+explans_total$upper_CI <- ci$upper
+
+# Convert to percentages
+explans_total$prop <- explans_total$prop * 100
+explans_total$lower_CI <- explans_total$lower_CI * 100
+explans_total$upper_CI <- explans_total$upper_CI * 100
+
+# Round for clarity
+explans_total$prop <- round(explans_total$prop, 2)
+explans_total$lower_CI <- round(explans_total$lower_CI, 2)
+explans_total$upper_CI <- round(explans_total$upper_CI, 2)
+
+# View results
+explans_total
+
+# keep only the disp.expl. cases 
+explans_total_disp <- explans_total %>% filter(Explan_category == "disp. expl.")
+explans_total_disp
+```
+
+
+
+
+
+```{r}
+# Load the necessary libraries
+library(dplyr)
+library(tidyr)
+
+# Assuming your data frame is named 'df'
+
+explans_per_trial <- tdata_explan_categories %>%
+  # 1. Reshape the data from wide to long format
+  pivot_longer(
+    cols = ends_with("mention"), # Selects all columns ending in "mention"
+    names_to = "trial",          # New column for the trial name (e.g., cutter_mention_4)
+    values_to = "outcome"       # New column for the choice value (0 or 1)
+  ) %>%
+
+  # 2. Group by the condition, the specific trial, and the outcome (0 or 1)
+  group_by(machine_type, trial, outcome) %>%
+
+  # 3. Calculate the total count for each unique combination
+  summarise(
+    Count = n(),
+    .groups = 'drop_last' # Keep the grouping by machine_type and trial for the next step
+  ) %>%
+
+  # 4. Calculate the percentage within each Trial/Condition group
+  mutate(
+    # Total_Observations for this trial within this condition is the sum of (0s + 1s)
+    Total_Observations = sum(Count),
+    Percentage = (Count / Total_Observations) * 100
+  ) %>%
+
+  # 5. Finalize and clean up columns
+  ungroup() %>%
+  mutate(
+    # Convert the 0/1 outcome to a descriptive label
+    Outcome_Type = ifelse(outcome == 1, "disp. expl.", "ndisp. expl.")
+  ) %>%
+  select(
+    machine_type = machine_type,
+    trial,
+    Outcome_Type,
+    Total_Count = Count,
+    Percentage
+  )
+
+# Add 95% Wilson confidence intervals
+
+library(binom)
+
+# Compute total counts per machine_type and trial
+totals_trial <- aggregate(Total_Count ~ machine_type + trial, data = explans_per_trial, sum)
+
+
+
+# Merge totals back into the main dataframe
+explans_per_trial <- merge(explans_per_trial, totals_trial,
+                           by = c("machine_type", "trial"),
+                           suffixes = c("", "_total"))
+
+
+# Compute proportion
+explans_per_trial$prop <- explans_per_trial$Total_Count / explans_per_trial$Total_Count_total
+
+# Compute 95% Wilson confidence intervals
+ci <- binom.confint(
+  x = explans_per_trial$Total_Count,
+  n = explans_per_trial$Total_Count_total,
+  methods = "wilson"
+)
+
+# Add CI columns
+explans_per_trial$lower_CI <- ci$lower
+explans_per_trial$upper_CI <- ci$upper
+
+# Convert to percentages
+explans_per_trial$prop <- explans_per_trial$prop * 100
+explans_per_trial$lower_CI <- explans_per_trial$lower_CI * 100
+explans_per_trial$upper_CI <- explans_per_trial$upper_CI * 100
+
+# Round for neatness
+explans_per_trial$prop <- round(explans_per_trial$prop, 2)
+explans_per_trial$lower_CI <- round(explans_per_trial$lower_CI, 2)
+explans_per_trial$upper_CI <- round(explans_per_trial$upper_CI, 2)
+
+# View the updated dataframe
+explans_per_trial
+
+
+
+
+
+library(forcats)
+
+# Assuming your data frame is named 'choices_total'
+
+explans_per_trial <- explans_per_trial %>%
+  mutate(
+    # Convert machine_type to a factor and relabel its levels
+    machine_type = fct_recode(
+      factor(machine_type),
+      "functional" = "functional",      # Relabel "functional" to "machine"
+      "scrambled" = "scrambled"  # Relabel "separate_parts" to "separate parts"
+    ), 
+    trial = fct_recode(
+      factor(trial),
+      "wheel" = "wheel_mention",      
+      "balloon" = "balloon_mention",  
+      "crossbow" = "crossbow_mention",
+      "cutter" = "cutter_mention"
+  ))
+
+
+# keep only the disp.expl. cases
+explans_per_trial_disp <- explans_per_trial %>% filter(Outcome_Type == "disp. expl.")
+explans_per_trial_disp
+```
+
+Graphs: 
+
+Overall 
+```{r}
+library(ggplot2)
+library(showtext)
+font_add_google("Outfit", "title_font")
+font_add_google("Cabin", "body_font")
+showtext_auto()
+
+title_font <- "title_font"
+body_font <- "body_font"
+
+title_text <- "Proportion of Explanation Types"
+caption_text <- "Note. Bars show mean percentages with 95% Wilson confidence intervals."
+
+explans_total_plot <- ggplot(explans_total_disp, aes(x = machine_type, y = Percentage, fill = machine_type)) +
+  guides(fill = FALSE) +
+  #facet_wrap(~ machine_type, nrow = 1, strip.position = "top") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20), expand = c(0, 0.05)) +
+  # scale x discrete and add new lables 
+  scale_x_discrete(labels = c("functional" = "functional", 
+                              "scrambled" = "scrambled")) +
+  # Bars
+  geom_bar(stat = "identity", alpha = 0.6, color = "black") +
+  
+  # 95% CI error bars
+  geom_errorbar(aes(ymin = lower_CI, ymax = upper_CI), width = 0.25, size = 0.6, color = "black") +
+  
+  # Percentage labels near the base of bars
+  geom_text(aes(y = 5, label = paste0(round(Percentage, 1), "%")), 
+            family = body_font, size = 3, color = "black") +
+  
+  # Labels and theme
+  labs(
+    x = "Mechanism Configuration",
+    y = "Percentage"
+  ) +
+  scale_fill_manual(values = c("#367A5D", "#D19032")) +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(family = body_font, size = 12),
+    axis.title.y = element_text(family = body_font, size = 12),
+    axis.text.x = element_text(family = body_font, size = 10),
+    axis.text.y = element_text(family = body_font, size = 10),
+    strip.text.x = element_text(size = 10, face = "bold"),
+    panel.spacing = unit(1, "lines"),
+    plot.margin = margin(10, 30, 10, 30),
+    legend.position = "none",
+    plot.background = element_rect(fill = "white", color = "white")
+  )
+explans_total_plot
+```
+
+Trial-wise 
+
+```{r}
+explans_per_trial_plot <- ggplot(explans_per_trial_disp, aes(x = machine_type, y = Percentage, fill = machine_type)) +
+  guides(fill = FALSE) +
+  facet_grid( ~ trial) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20), expand = c(0, 0.05)) +
+  scale_x_discrete(labels = c("functional" = "functional", 
+                              "scrambled" = "scrambled")) +
+  
+  # Bars
+  geom_bar(stat = "identity", alpha = 0.6, color = "black") +
+  
+  # 95% CI error bars
+  geom_errorbar(aes(ymin = lower_CI, ymax = upper_CI), width = 0.25, size = 0.6, color = "black") +
+
+  
+  labs(
+    x = "Mechanism Confguration",
+    y = "Percentage"
+  ) +
+  scale_fill_manual(values = c("#367A5D", "#D19032")) +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(family = body_font, size = 12),
+    axis.title.y = element_text(family = body_font, size = 12),
+    axis.text.x = element_text(family = body_font, size = 10),
+    axis.text.y = element_text(family = body_font, size = 10),
+    strip.text.x = element_text(family = body_font, size = 10, face = "bold"),
+    strip.text.y = element_text(family = body_font, size = 10),
+    panel.spacing = unit(1, "lines"),
+    plot.margin = margin(10, 30, 10, 30),
+    legend.position = "none",
+    plot.background = element_rect(fill = "white", color = "white"),
+    clip = "off"
+  )
+explans_per_trial_plot
+```
+
+Combined
+
+
+
+
+```{r}
+library(patchwork)
+
+# --- Refined top plot (A: per condition) ---
+g3_refined <- explans_total_plot +
+  labs(title = NULL, subtitle = NULL, caption = NULL) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)) +
+  theme(
+    axis.text.x = element_text(family = body_font, size = 11),
+    axis.text.y = element_text(family = body_font, size = 11),
+    strip.text.x = element_text(size = 11, face = "bold"),
+    plot.margin = margin(10, 150, 10, 150)
+  )
+
+# --- Refined bottom plot (B: per trial and condition) ---
+g4_refined <- explans_per_trial_plot +
+  labs(title = NULL, subtitle = NULL, caption = NULL) +
+  geom_text(
+    aes(label = paste0(round(Percentage, 1), "%")),
+    y = 3,
+    family = body_font,
+    size = 3
+  ) +
+  scale_y_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, 20),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  theme(
+    axis.text.x = element_text(family = body_font, size = 10),
+    axis.text.y = element_text(family = body_font, size = 10),
+    strip.text.x = element_text(size = 10, face = "bold"),
+    strip.text.y = element_text(size = 10),
+    plot.margin = margin(10, 30, 10, 30),
+    panel.spacing = unit(1, "lines"),
+    plot.background = element_rect(fill = "white", color = "white"),
+    clip = "off"
+  )
+
+# --- Combine clean plots (no global title/subtitle, keep A/B tags + Note) ---
+combined_plot_APA_clean <- (
+  g3_refined + g4_refined
+) +
+  plot_layout(ncol = 1, heights = c(1, 1.1)) +
+  plot_annotation(
+    tag_levels = "A",  # keeps A and B
+    #caption = "Note. Bars show mean percentages with 95% Wilson confidence intervals.",
+    theme = theme(
+      plot.caption = element_text(family = body_font, size = 10, hjust = 0, margin = margin(t = 8)),
+      plot.tag = element_text(family = title_font, face = "bold", size = 14),
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+  )
+
+# Display final version
+combined_plot_APA_clean
+
+
+
+
+library(patchwork)
+
+# Narrow and center top plot
+g3_narrow <- g3_refined +
+  theme(
+    plot.margin = margin(10, 150, 10, 150)  # increase side margins to shrink visual width
+  )
+
+combined_plot_APA_balanced <- (
+  wrap_elements(full = g3_narrow) / g4_refined
+) +
+  plot_layout(heights = c(1, 1)) +
+  plot_annotation(
+    tag_levels = "A",
+    theme = theme(
+      plot.tag = element_text(family = title_font, face = "bold", size = 14),
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+  )
+
+combined_plot_APA_balanced
+
+
+
+
+
+# Save APA-ready outputs
+ggsave("combined_explans_APA_conservative.pdf", combined_plot_APA_balanced, width = 9, height = 8)
+ggsave("combined_explans_APA_conservative.svg", combined_plot_APA_balanced, width = 9, height = 8)
+ggsave("combined_explans_APA_conservative.png", combined_plot_APA_balanced, width = 9, height = 8, dpi = 300)
+
+```
+
+
+
+
+
+# Analyses
+
+
+```{r}
+
+# Vector 1: Correct choices (successes) for each machine_type
+disp_counts <- explans_total %>%
+  filter(Explan_category == "disp. expl.") %>%
+  arrange(machine_type) %>% # Ensures correct order: machine, separate parts
+  pull(Total_Count)
+
+# Vector 2: Total trials (n) for each machine_type
+total_trials <- explans_total %>%
+  group_by(machine_type) %>%
+  summarise(
+    total_trials = sum(Total_Count),
+    .groups = "drop"
+  ) %>%
+  arrange(machine_type) %>% # Ensures correct order: machine, separate parts
+  pull(total_trials)
+
+
+# 3. Perform the one-tailed proportion test
+# H1: Proportion of correct choices in 'machine' is GREATER THAN 'separate parts'.
+test_result <- prop.test(
+    x = disp_counts,
+    n = total_trials,
+    alternative = "greater", # One-tailed test
+    correct = TRUE           # Apply Yates' continuity correction
+)
+
+# Print the result
+print(test_result)
+```
+
+
+
+```{r}
+
+library(pwr)
+
+# 2. Define the proportions (p1 = machine, p2 = separate parts)
+p1 <- disp_counts[1] / total_trials[1] # 39/56 = 0.6964
+p2 <- disp_counts[2] / total_trials[2] # 15/44 = 0.3409
+
+# 3. Calculate Cohen's h effect size
+h <- ES.h(p1 = p1, p2 = p2)
+
+# Print the result
+cat("Proportion 1 (Machine):", p1, "\n")
+cat("Proportion 2 (Separate Parts):", p2, "\n")
+cat("Cohen's h Effect Size:", h, "\n")
+```
+
+
+
+
+
+
