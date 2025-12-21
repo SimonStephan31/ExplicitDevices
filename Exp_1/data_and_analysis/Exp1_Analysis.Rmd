@@ -73,6 +73,12 @@ comparison_results <- tdata %>%
 print(comparison_results)
 ```
 
+```{r}
+# make machine_type a factor
+
+tdata$machine_type <- factor(tdata$machine_type, 
+                             levels = c("functional", "dysfunctional", "separate_parts"))
+```
 
 Differences in activities:
 
@@ -145,7 +151,7 @@ g1 <- ggplot(tdata, aes(x = machine_type, y = num_act, fill = machine_type)) +
   guides(fill=FALSE)+
   #facet_wrap( ~ model, labeller = label_both, nrow = 1, strip.position = "top")+
   scale_y_continuous(limits = c(0, 22), breaks=seq(0, 22, 2), expand = c(0,0)) +
-  scale_x_discrete(labels = c("dysf.", "func.", "scr.")) +
+  scale_x_discrete(labels = c("func.", "dysf.", "scr.")) +
   #geom_jitter(alpha = 0.15, width = 0.15, height = 0.02, aes(color = structure)) +
   #geom_violin(alpha = 0.2, color = NA, trim = T)+
   #geom_line(position = pd, size = 1, alpha=0.15, aes(group = subj_code)) +
@@ -269,7 +275,7 @@ g2 <- ggplot(tdata, aes(x = machine_type, y = num_ent, fill = machine_type)) +
   guides(fill=FALSE)+
   #facet_wrap( ~ model, labeller = label_both, nrow = 1, strip.position = "top")+
     scale_y_continuous(limits = c(0,22), breaks=seq(0, 22, 2), expand = c(0,0)) +
-  scale_x_discrete(labels = c("dysf.", "func.", "scr.")) +
+  scale_x_discrete(labels = c("func.", "dysf.", "scr.")) +
   #geom_jitter(alpha = 0.15, width = 0.15, height = 0.02, aes(color = structure)) +
   #geom_violin(alpha = 0.2, color = NA, trim = T)+
   #geom_line(position = pd, size = 1, alpha=0.15, aes(group = subj_code)) +
@@ -482,7 +488,7 @@ showtext_auto()
 title_font <- "title_font"
 body_font <- "body_font"
 
-title_text <- "Mean number of listed arrangements"
+title_text <- "Mean number of listed configuration terms"
 subtitle_text <- "identified by different LLMs per machine type condition"
 caption_text <- "Note. Bars show means, error bars show 95% CIs."
 
@@ -491,7 +497,7 @@ g4 <- ggplot(tdata, aes(x = machine_type, y = num_arr, fill = machine_type)) +
   guides(fill=FALSE)+
   #facet_wrap( ~ model, labeller = label_both, nrow = 1, strip.position = "top")+
     scale_y_continuous(limits = c(0, 22), breaks=seq(0, 22, 2), expand = c(0,0)) +
-  scale_x_discrete(labels = c("dysf.", "func.", "scr.")) +
+  scale_x_discrete(labels = c("func.", "dysf.", "scr.")) +
   #geom_jitter(alpha = 0.15, width = 0.15, height = 0.02, aes(color = structure)) +
   #geom_violin(alpha = 0.2, color = NA, trim = T)+
   #geom_line(position = pd, size = 1, alpha=0.15, aes(group = subj_code)) +
@@ -579,7 +585,7 @@ showtext_auto()
 title_font <- "title_font"
 body_font <- "body_font"
 
-title_text <- "Mean number of listed arrangements"
+title_text <- "Mean number of listed configuration terms"
 subtitle_text <- "identified by different LLMs per machine type condition"
 caption_text <- "Note. Bars show means, error bars show 95% CIs."
 
@@ -679,8 +685,8 @@ G <- g1 + g2 + g4 +
   theme(plot.margin = unit(c(0,0,0,0.2), "cm")) # Set margins to 0
 G
 
-ggsave("Exp1_Results.svg",width=11,height=5)
-ggsave("Exp1_Results.pdf",width=11,height=5)
+ggsave("Exp1_Results.svg",width=12,height=5)
+ggsave("Exp1_Results.pdf",width=12,height=5)
 # Combine the plots in a 2-by-2 grid (g1, g2 on top, g3 below)
 #(g1 + g2) / g3
 ```
